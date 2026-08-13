@@ -264,6 +264,21 @@ th {
 	width: 180px;
 }
 
+.auth button {
+	background: transparent;
+	border: 1px solid var(--line);
+	padding: 8px 12px;
+	color: var(--ink);
+	text-transform: uppercase;
+	letter-spacing: 0.14em;
+	font-size: 11px;
+}
+
+.auth button:hover {
+	border-color: var(--phosphor);
+	color: var(--phosphor);
+}
+
 .flash {
 	margin: 0 16px 16px;
 	padding: 10px 12px;
