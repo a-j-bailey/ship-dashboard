@@ -114,7 +114,9 @@ async function handleLog(c: AppContext, pathToken?: string): Promise<Response> {
 }
 
 async function handleScreen(c: AppContext, pathToken?: string): Promise<Response> {
-	if (!(await requireDeviceToken(c.req.raw, c.env, pathToken))) return c.json({ error: "unauthorized" }, 401);
+	const deviceOk = await requireDeviceToken(c.req.raw, c.env, pathToken);
+	const dashboardOk = await requireDashboardToken(c.req.raw, c.env);
+	if (!deviceOk && !dashboardOk) return c.json({ error: "unauthorized" }, 401);
 	const bytes = await getScreen(c.env.KV);
 	if (!bytes) return c.json({ error: "no screen" }, 404);
 	return new Response(bytes, {
