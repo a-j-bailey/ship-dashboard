@@ -47,6 +47,8 @@ describe("radar SVG", () => {
 		);
 		expect(svg).toContain("OCEAN STAR");
 		expect(svg).toContain("FROM Halifax");
+		expect(svg).toContain("NARRAGANSETT BAY");
+		expect(svg).toContain("SHIP RADAR");
 		expect(svg).toContain('width="800"');
 		expect(svg).toContain('height="480"');
 		expect(svg).not.toContain("<circle");

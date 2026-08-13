@@ -20,14 +20,14 @@ export function renderRadarSvg(
 	const rows = contacts
 		.map((vessel, index) => {
 			const origin = vessel.origin === "—" ? vessel.destination : vessel.origin;
-			return `<text x="500" y="${118 + index * 28}" font-size="13" font-family="Courier New, monospace" fill="#000">${esc(clip(vessel.name, 16))}</text>
-        <text x="500" y="${132 + index * 28}" font-size="11" font-family="Courier New, monospace" fill="#000">FROM ${esc(clip(origin, 18))}  ${vessel.sog.toFixed(1)}kn ${Math.round(vessel.cog)}°</text>`;
+			return `<text x="500" y="${118 + index * 28}" font-size="13" font-family="IBM Plex Mono, monospace" fill="#000">${esc(clip(vessel.name, 16))}</text>
+        <text x="500" y="${132 + index * 28}" font-size="11" font-family="IBM Plex Mono, monospace" fill="#000">FROM ${esc(clip(origin, 18))}  ${vessel.sog.toFixed(1)}kn ${Math.round(vessel.cog)}°</text>`;
 		})
 		.join("");
 
 	const empty =
 		contacts.length === 0
-			? `<text x="500" y="160" font-size="13" font-family="Courier New, monospace" fill="#000">${options.error ? esc(options.error) : "NO MOVING CONTACTS"}</text>`
+			? `<text x="500" y="160" font-size="13" font-family="IBM Plex Mono, monospace" fill="#000">${options.error ? esc(options.error) : "NO MOVING CONTACTS"}</text>`
 			: "";
 
 	return `<?xml version="1.0" encoding="UTF-8"?>
@@ -43,16 +43,14 @@ export function renderRadarSvg(
     <line x1="${cx - 6}" y1="${cy}" x2="${cx + 6}" y2="${cy}" stroke="#000" stroke-width="1.2"/>
     <line x1="${cx}" y1="${cy - 6}" x2="${cx}" y2="${cy + 6}" stroke="#000" stroke-width="1.2"/>
   </g>
-  <rect x="12" y="12" width="268" height="22" fill="#fff"/>
-  <text x="16" y="28" font-size="14" font-family="Courier New, monospace" font-weight="700">${esc(settings.areaLabel.toUpperCase())}</text>
-  <rect x="12" y="${CHART.y + CHART.size - 26}" width="168" height="18" fill="#fff"/>
-  <text x="16" y="${CHART.y + CHART.size - 12}" font-size="12" font-family="Courier New, monospace">${settings.radiusNm} NM  ${utc}  N↑</text>
-  <text x="500" y="28" font-size="18" font-family="Courier New, monospace" font-weight="700">SHIP RADAR</text>
-  <text x="500" y="48" font-size="12" font-family="Courier New, monospace">MOVING ${vessels.length}   RANGE ${settings.radiusNm}NM</text>
+  ${labelPlate(12, 12, settings.areaLabel.toUpperCase(), 14)}
+  ${labelPlate(12, CHART.y + CHART.size - 26, `${settings.radiusNm} NM  ${utc}  N↑`, 12)}
+  <text x="500" y="28" font-size="18" font-family="IBM Plex Mono, monospace" font-weight="700" fill="#000">SHIP RADAR</text>
+  <text x="500" y="48" font-size="12" font-family="IBM Plex Mono, monospace" fill="#000">MOVING ${vessels.length}   RANGE ${settings.radiusNm}NM</text>
   <line x1="492" y1="60" x2="788" y2="60" stroke="#000" stroke-width="2"/>
   ${rows}
   ${empty}
-  <text x="500" y="468" font-size="11" font-family="Courier New, monospace">SOG≥${settings.minSog}kn  ORIGIN FROM AIS DEST</text>
+  <text x="500" y="468" font-size="11" font-family="IBM Plex Mono, monospace" fill="#000">SOG≥${settings.minSog}kn  ORIGIN FROM AIS DEST</text>
 </svg>`;
 }
 
@@ -85,6 +83,13 @@ function coastPaths(settings: RadarSettings): string {
 			.join(" ");
 		return `<polygon points="${points}" fill="#000" stroke="#000" stroke-width="1" stroke-linejoin="round"/>`;
 	}).join("");
+}
+
+function labelPlate(x: number, y: number, text: string, fontSize: number): string {
+	const width = Math.ceil(text.length * fontSize * 0.62 + 12);
+	const height = fontSize + 8;
+	const baseline = y + fontSize + 2;
+	return `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="#fff"/><text x="${x + 6}" y="${baseline}" font-size="${fontSize}" font-family="IBM Plex Mono, monospace" font-weight="700" fill="#000">${esc(text)}</text>`;
 }
 
 function pad(value: number): string {
