@@ -51,6 +51,8 @@ describe("radar SVG", () => {
 		expect(svg).toContain('height="480"');
 		expect(svg).not.toContain("<circle");
 		expect(svg).toContain('clipPath id="chart"');
+		expect(svg).toContain('fill="#000"');
+		expect(svg).toContain("<polygon");
 		expect(svg).toContain('stroke="#000" stroke-width="2.2"');
 	});
 });

@@ -1,5 +1,5 @@
 import type { RadarSettings, Vessel } from "../../shared/types";
-import { COAST_LINES } from "../../data/coastline.ts";
+import { COAST_POLYGONS } from "../../data/coastline.ts";
 import { CHART, chartMetrics, projectToChart } from "../geo/project.ts";
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from "./png.ts";
 
@@ -38,11 +38,15 @@ export function renderRadarSvg(
     <clipPath id="chart"><rect x="${CHART.x}" y="${CHART.y}" width="${CHART.size}" height="${CHART.size}"/></clipPath>
     ${coast}
     ${ticks}
-    <line x1="${cx - 6}" y1="${cy}" x2="${cx + 6}" y2="${cy}" stroke="#000" stroke-width="1.6"/>
-    <line x1="${cx}" y1="${cy - 6}" x2="${cx}" y2="${cy + 6}" stroke="#000" stroke-width="1.6"/>
+    <line x1="${cx - 6}" y1="${cy}" x2="${cx + 6}" y2="${cy}" stroke="#fff" stroke-width="2.4"/>
+    <line x1="${cx}" y1="${cy - 6}" x2="${cx}" y2="${cy + 6}" stroke="#fff" stroke-width="2.4"/>
+    <line x1="${cx - 6}" y1="${cy}" x2="${cx + 6}" y2="${cy}" stroke="#000" stroke-width="1.2"/>
+    <line x1="${cx}" y1="${cy - 6}" x2="${cx}" y2="${cy + 6}" stroke="#000" stroke-width="1.2"/>
   </g>
+  <rect x="12" y="12" width="268" height="22" fill="#fff"/>
   <text x="16" y="28" font-size="14" font-family="Courier New, monospace" font-weight="700">${esc(settings.areaLabel.toUpperCase())}</text>
-  <text x="16" y="${CHART.y + CHART.size - 10}" font-size="12" font-family="Courier New, monospace">${settings.radiusNm} NM  ${utc}  N↑</text>
+  <rect x="12" y="${CHART.y + CHART.size - 26}" width="168" height="18" fill="#fff"/>
+  <text x="16" y="${CHART.y + CHART.size - 12}" font-size="12" font-family="Courier New, monospace">${settings.radiusNm} NM  ${utc}  N↑</text>
   <text x="500" y="28" font-size="18" font-family="Courier New, monospace" font-weight="700">SHIP RADAR</text>
   <text x="500" y="48" font-size="12" font-family="Courier New, monospace">MOVING ${vessels.length}   RANGE ${settings.radiusNm}NM</text>
   <line x1="492" y1="60" x2="788" y2="60" stroke="#000" stroke-width="2"/>
@@ -60,14 +64,18 @@ function vesselTicks(settings: RadarSettings, vessels: Vessel[]): string {
 			const heading = ((vessel.heading || vessel.cog) * Math.PI) / 180;
 			const dx = Math.sin(heading) * TICK_LEN;
 			const dy = -Math.cos(heading) * TICK_LEN;
-			return `<line x1="${(p.x - dx).toFixed(1)}" y1="${(p.y - dy).toFixed(1)}" x2="${(p.x + dx).toFixed(1)}" y2="${(p.y + dy).toFixed(1)}" stroke="#000" stroke-width="2.2" stroke-linecap="square"/>`;
+			const x1 = (p.x - dx).toFixed(1);
+			const y1 = (p.y - dy).toFixed(1);
+			const x2 = (p.x + dx).toFixed(1);
+			const y2 = (p.y + dy).toFixed(1);
+			return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#fff" stroke-width="3.6" stroke-linecap="square"/><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#000" stroke-width="2.2" stroke-linecap="square"/>`;
 		})
 		.join("");
 }
 
 function coastPaths(settings: RadarSettings): string {
-	return COAST_LINES.map((line) => {
-		const points = line
+	return COAST_POLYGONS.map((ring) => {
+		const points = ring
 			.map(([lng, lat]) => {
 				if (lat == null || lng == null) return null;
 				const p = projectToChart(lat, lng, settings.lat, settings.lng, settings.radiusNm);
@@ -75,7 +83,7 @@ function coastPaths(settings: RadarSettings): string {
 			})
 			.filter(Boolean)
 			.join(" ");
-		return `<polyline points="${points}" fill="none" stroke="#000" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
+		return `<polygon points="${points}" fill="#000" stroke="#000" stroke-width="1" stroke-linejoin="round"/>`;
 	}).join("");
 }
 
