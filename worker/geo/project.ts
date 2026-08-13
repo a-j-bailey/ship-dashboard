@@ -23,28 +23,56 @@ export function bboxFromCenter(lat: number, lng: number, radiusNm: number): [[nu
 	];
 }
 
+export const CHART = {
+	x: 8,
+	y: 8,
+	size: 470,
+} as const;
+
 export function nmPerDegreeLng(lat: number): number {
 	return NM_PER_DEGREE_LAT * Math.max(0.2, Math.abs(Math.cos((lat * Math.PI) / 180)));
 }
 
-export function projectToRadar(
+export function chartMetrics(): { cx: number; cy: number; half: number } {
+	const half = CHART.size / 2;
+	return { cx: CHART.x + half, cy: CHART.y + half, half };
+}
+
+export function inChartNm(centerLat: number, centerLng: number, lat: number, lng: number, radiusNm: number): boolean {
+	const dxNm = (lng - centerLng) * nmPerDegreeLng(centerLat);
+	const dyNm = (lat - centerLat) * NM_PER_DEGREE_LAT;
+	return Math.abs(dxNm) <= radiusNm && Math.abs(dyNm) <= radiusNm;
+}
+
+export function projectToChart(
 	lat: number,
 	lng: number,
 	centerLat: number,
 	centerLng: number,
 	radiusNm: number,
-	cx: number,
-	cy: number,
-	radiusPx: number,
-): { x: number; y: number; rangeNm: number } {
-	const dxNm = (lng - centerLng) * nmPerDegreeLng(centerLat);
-	const dyNm = (lat - centerLat) * NM_PER_DEGREE_LAT;
-	const rangeNm = Math.hypot(dxNm, dyNm);
-	const scale = radiusPx / radiusNm;
+): { x: number; y: number } {
+	const { cx, cy, half } = chartMetrics();
+	const scale = half / radiusNm;
 	return {
-		x: cx + dxNm * scale,
-		y: cy - dyNm * scale,
-		rangeNm,
+		x: cx + (lng - centerLng) * nmPerDegreeLng(centerLat) * scale,
+		y: cy - (lat - centerLat) * NM_PER_DEGREE_LAT * scale,
+	};
+}
+
+export function latLngFromChartPx(
+	x: number,
+	y: number,
+	centerLat: number,
+	centerLng: number,
+	radiusNm: number,
+): { lat: number; lng: number } | null {
+	if (x < CHART.x || x > CHART.x + CHART.size || y < CHART.y || y > CHART.y + CHART.size) return null;
+	const { cx, cy, half } = chartMetrics();
+	const dxNm = ((x - cx) / half) * radiusNm;
+	const dyNm = ((cy - y) / half) * radiusNm;
+	return {
+		lat: centerLat + dyNm / NM_PER_DEGREE_LAT,
+		lng: centerLng + dxNm / nmPerDegreeLng(centerLat),
 	};
 }
 

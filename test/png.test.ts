@@ -49,5 +49,8 @@ describe("radar SVG", () => {
 		expect(svg).toContain("FROM Halifax");
 		expect(svg).toContain('width="800"');
 		expect(svg).toContain('height="480"');
+		expect(svg).not.toContain("<circle");
+		expect(svg).toContain('clipPath id="chart"');
+		expect(svg).toContain('stroke="#000" stroke-width="2.2"');
 	});
 });

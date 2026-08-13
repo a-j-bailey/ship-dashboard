@@ -1,4 +1,5 @@
 import type { StaticRecord, Vessel } from "../../shared/types";
+import { inChartNm } from "../geo/project.ts";
 import { parseDestination, sanitizeAisText } from "./ports";
 
 const ANCHORED_MOORED_AGROUND = new Set([1, 5, 6]);
@@ -76,7 +77,7 @@ export function movingVessels(
 	const out: Vessel[] = [];
 	for (const vessel of positions.values()) {
 		if (!isMoving(vessel, minSog)) continue;
-		if (distanceFn(centerLat, centerLng, vessel.lat, vessel.lng) > radiusNm) continue;
+		if (!inChartNm(centerLat, centerLng, vessel.lat, vessel.lng, radiusNm)) continue;
 		out.push(vessel);
 	}
 	out.sort((a, b) => {

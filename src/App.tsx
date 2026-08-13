@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { DEFAULT_SETTINGS, ZOOM_PRESETS, type RadarSettings, type VesselSnapshot } from "../shared/types";
+import { latLngFromChartPx } from "../worker/geo/project.ts";
 import { getDashboardToken, getStatus, refreshNow, saveSettings, screenPreviewUrl, setDashboardToken, type StatusPayload } from "./api";
 
 export function App() {
@@ -73,16 +74,12 @@ export function App() {
 		const rect = event.currentTarget.getBoundingClientRect();
 		const x = ((event.clientX - rect.left) / rect.width) * 800;
 		const y = ((event.clientY - rect.top) / rect.height) * 480;
-		const dx = x - 248;
-		const dy = 248 - y;
-		if (Math.hypot(dx, dy) > 214) return;
-		const dxNm = (dx / 214) * form.radiusNm;
-		const dyNm = (dy / 214) * form.radiusNm;
-		const lngPerNm = 60 * Math.max(0.2, Math.abs(Math.cos((form.lat * Math.PI) / 180)));
+		const next = latLngFromChartPx(x, y, form.lat, form.lng, form.radiusNm);
+		if (!next) return;
 		setForm((current) => ({
 			...current,
-			lat: Number((current.lat + dyNm / 60).toFixed(4)),
-			lng: Number((current.lng + dxNm / lngPerNm).toFixed(4)),
+			lat: Number(next.lat.toFixed(4)),
+			lng: Number(next.lng.toFixed(4)),
 		}));
 	}
 
@@ -126,7 +123,7 @@ export function App() {
 								alt="TRMNL radar preview"
 								onClick={recenterFromClick}
 								onError={() => setPreview("")}
-								title="Click the scope to set a new center"
+								title="Click the chart to set a new center"
 							/>
 						) : (
 							<div className="scope-empty">NO IMAGE</div>
