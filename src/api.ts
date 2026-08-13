@@ -47,5 +47,8 @@ export function refreshNow(): Promise<VesselSnapshot> {
 }
 
 export function screenPreviewUrl(): string {
-	return `/api/screen.png?ts=${Date.now()}`;
+	const params = new URLSearchParams({ ts: String(Date.now()) });
+	const token = getDashboardToken();
+	if (token) params.set("dashboard", token);
+	return `/api/screen.png?${params}`;
 }

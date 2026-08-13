@@ -121,7 +121,13 @@ export function App() {
 					</div>
 					<div className="scope">
 						{preview ? (
-							<img src={preview} alt="TRMNL radar preview" onClick={recenterFromClick} title="Click the scope to set a new center" />
+							<img
+								src={preview}
+								alt="TRMNL radar preview"
+								onClick={recenterFromClick}
+								onError={() => setPreview("")}
+								title="Click the scope to set a new center"
+							/>
 						) : (
 							<div className="scope-empty">NO IMAGE</div>
 						)}
