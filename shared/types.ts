@@ -1,10 +1,10 @@
 export const DEFAULT_SETTINGS = {
-	lat: 42.35,
-	lng: -70.98,
-	radiusNm: 8,
+	lat: 41.6,
+	lng: -71.33,
+	radiusNm: 15,
 	minSog: 0.5,
 	refreshRate: 120,
-	areaLabel: "Boston Harbor",
+	areaLabel: "Narragansett Bay",
 } as const;
 
 export type RadarSettings = {

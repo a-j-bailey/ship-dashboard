@@ -50,7 +50,7 @@ https://ship-dashboard.<subdomain>.workers.dev/t/YOUR_DEVICE_TOKEN
 Firmware appends `/api/display` onto that base, which is why the token lives in the path.
 
 5. Watch `npx wrangler tail` for `/api/setup` then `/api/display`.
-6. Tune center/zoom on the web UI (default: Boston Harbor, 8 NM).
+6. Tune center/zoom on the web UI (default: Narragansett Bay, 15 NM).
 
 ## Control UI
 

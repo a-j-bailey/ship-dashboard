@@ -3,11 +3,12 @@ import { bboxFromCenter, CHART, inChartNm, latLngFromChartPx, normalizeSettings,
 import { DEFAULT_SETTINGS } from "../shared/types";
 
 describe("normalizeSettings", () => {
-	it("returns Boston defaults", () => {
+	it("returns Narragansett Bay defaults", () => {
 		expect(normalizeSettings({})).toMatchObject({
 			lat: DEFAULT_SETTINGS.lat,
 			lng: DEFAULT_SETTINGS.lng,
 			radiusNm: DEFAULT_SETTINGS.radiusNm,
+			areaLabel: "Narragansett Bay",
 		});
 	});
 

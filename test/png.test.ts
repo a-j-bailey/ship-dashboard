@@ -32,8 +32,8 @@ describe("radar SVG", () => {
 				{
 					mmsi: 1,
 					name: "OCEAN STAR",
-					lat: 42.36,
-					lng: -70.97,
+					lat: 41.62,
+					lng: -71.31,
 					sog: 8.2,
 					cog: 120,
 					heading: 120,
