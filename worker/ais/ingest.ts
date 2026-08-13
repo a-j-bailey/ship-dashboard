@@ -2,8 +2,9 @@ import type { RadarSettings, StaticRecord, Vessel, VesselSnapshot } from "../../
 import { bboxFromCenter, distanceNm } from "../geo/project.ts";
 import { applyAisMessage, movingVessels, type AisEnvelope } from "./filter.ts";
 
-const AIS_URL = "https://stream.aisstream.io/v0/stream";
+const AIS_URL = "wss://stream.aisstream.io/v0/stream";
 const SAMPLE_MS = 12_000;
+const OPEN_MS = 2_000;
 
 const MESSAGE_TYPES = [
 	"PositionReport",
@@ -98,7 +99,10 @@ async function collectAis(
 	const ws = await openAisSocket();
 	return new Promise((resolve, reject) => {
 		let messageCount = 0;
+		let rawCount = 0;
 		let settled = false;
+		let drain = Promise.resolve();
+		const unreadKinds: string[] = [];
 
 		const finish = (error?: unknown) => {
 			if (settled) return;
@@ -125,50 +129,126 @@ async function collectAis(
 				messageCount += 1;
 				applyAisMessage(parsed, positions, staticCache, Date.now());
 			} catch {
-				// skip malformed frames
+				unreadKinds.push("non-json");
 			}
 		};
 
-		const timeout = setTimeout(() => finish(), durationMs);
-
-		ws.addEventListener("message", (event) => {
+		const onFrame = (data: unknown) => {
 			if (settled) return;
-			const payload = decodeWsPayloadSync(event.data);
+			rawCount += 1;
+			const payload = decodeWsPayloadSync(data);
 			if (payload !== null) {
 				ingestJson(payload);
 				return;
 			}
-			if (typeof Blob !== "undefined" && event.data instanceof Blob) {
-				void event.data.text().then((text) => ingestJson(text));
+			if (isBlobLike(data)) {
+				drain = drain.then(async () => {
+					if (settled) return;
+					ingestJson(new TextDecoder().decode(await data.arrayBuffer()));
+				});
+				return;
 			}
-		});
+			unreadKinds.push(payloadKind(data));
+		};
+
+		const timeout = setTimeout(() => {
+			void drain.then(() => {
+				if (messageCount === 0 && rawCount > 0) {
+					finish(
+						new Error(
+							`AISStream sent ${rawCount} undecodable frames (${unreadKinds.slice(0, 4).join(", ") || "unknown"})`,
+						),
+					);
+					return;
+				}
+				finish();
+			});
+		}, durationMs);
+
+		ws.addEventListener("message", (event) => onFrame(event.data));
 		ws.addEventListener("error", () => finish(new Error("AISStream websocket error")));
 		ws.addEventListener("close", (event) => {
-			if (settled) return;
-			const close = event as CloseEvent;
-			const detail = closeDetail(close.code, close.reason);
-			if (messageCount === 0) finish(new Error(`AISStream closed with no messages${detail}`));
-			else finish();
+			void drain.then(() => {
+				if (settled) return;
+				const close = event as CloseEvent;
+				if (messageCount === 0 && rawCount > 0) {
+					finish(
+						new Error(
+							`AISStream sent ${rawCount} undecodable frames (${unreadKinds.slice(0, 4).join(", ") || "unknown"})`,
+						),
+					);
+					return;
+				}
+				if (messageCount === 0) finish(new Error(closedWithNoMessages(close.code, close.reason)));
+				else finish();
+			});
 		});
 
-		try {
-			ws.binaryType = "arraybuffer";
-		} catch {
-			// ignore environments that freeze binaryType
-		}
-
-		// Subscribe immediately — AISStream closes sockets that wait >3s after connect.
+		// Official sample sends on open. After openAisSocket the socket is already OPEN.
 		ws.send(JSON.stringify(buildAisSubscription(apiKey, bbox)));
 	});
 }
 
 async function openAisSocket(): Promise<WebSocket> {
-	// fetch()+Upgrade is a backend handshake. `new WebSocket()` is the browser API and
-	// sends Origin; AISStream drops those connections at the gateway (CORS / key exposure).
+	try {
+		return await openViaConstructor();
+	} catch {
+		return await openViaFetchUpgrade();
+	}
+}
+
+function openViaConstructor(): Promise<WebSocket> {
+	return new Promise((resolve, reject) => {
+		const ws = new WebSocket(AIS_URL);
+		try {
+			ws.binaryType = "arraybuffer";
+		} catch {
+			// ignore
+		}
+
+		const onError = () => fail(new Error("AISStream websocket error"));
+		const onClose = (event: Event) => {
+			const close = event as CloseEvent;
+			fail(new Error(`AISStream closed before open${closeDetail(close.code, close.reason)}`));
+		};
+
+		const detach = () => {
+			clearTimeout(timer);
+			ws.removeEventListener("error", onError);
+			ws.removeEventListener("close", onClose);
+		};
+
+		const fail = (error: Error) => {
+			detach();
+			try {
+				ws.close();
+			} catch {
+				// ignore
+			}
+			reject(error);
+		};
+
+		const timer = setTimeout(() => fail(new Error("AISStream open timed out")), OPEN_MS);
+
+		ws.addEventListener(
+			"open",
+			() => {
+				detach();
+				resolve(ws);
+			},
+			{ once: true },
+		);
+		ws.addEventListener("error", onError);
+		ws.addEventListener("close", onClose);
+	});
+}
+
+async function openViaFetchUpgrade(): Promise<WebSocket> {
+	// Workers fetch accepts wss:// for a backend upgrade. binaryType must be set
+	// BEFORE accept(); after 2026-03-17 the default is Blob and instanceof checks fail.
 	const response = await fetch(AIS_URL, {
 		headers: {
 			Upgrade: "websocket",
-			Connection: "Upgrade",
 		},
 	});
 	const ws = response.webSocket;
@@ -177,6 +257,11 @@ async function openAisSocket(): Promise<WebSocket> {
 		throw new Error(
 			`AISStream refused websocket upgrade (${response.status})${hint ? `: ${hint}` : ""}`,
 		);
+	}
+	try {
+		ws.binaryType = "arraybuffer";
+	} catch {
+		// ignore
 	}
 	ws.accept();
 	return ws;
@@ -193,14 +278,47 @@ export function decodeWsPayloadSync(data: unknown): string | null {
 	if (typeof data === "string") return data;
 	if (data instanceof ArrayBuffer) return new TextDecoder().decode(data);
 	if (ArrayBuffer.isView(data)) return new TextDecoder().decode(data);
+	if (isArrayBufferLike(data)) return new TextDecoder().decode(data);
 	return null;
 }
 
 export async function decodeWsPayload(data: unknown): Promise<string | null> {
 	const sync = decodeWsPayloadSync(data);
 	if (sync !== null) return sync;
-	if (typeof Blob !== "undefined" && data instanceof Blob) return data.text();
+	if (isBlobLike(data)) return data.text();
 	return null;
+}
+
+export function payloadKind(data: unknown): string {
+	if (data == null) return String(data);
+	if (typeof data !== "object") return typeof data;
+	const name = (data as { constructor?: { name?: string } }).constructor?.name;
+	return name || "object";
+}
+
+function isArrayBufferLike(data: unknown): data is ArrayBuffer {
+	return (
+		typeof data === "object" &&
+		data !== null &&
+		(data as { constructor?: { name?: string } }).constructor?.name === "ArrayBuffer" &&
+		typeof (data as ArrayBuffer).byteLength === "number"
+	);
+}
+
+function isBlobLike(data: unknown): data is Blob {
+	if (typeof data !== "object" || data === null) return false;
+	const blob = data as Blob;
+	if (typeof blob.arrayBuffer !== "function") return false;
+	if (typeof Blob !== "undefined" && data instanceof Blob) return true;
+	return blob.constructor?.name === "Blob";
+}
+
+function closedWithNoMessages(code: number | undefined, reason: unknown): string {
+	const detail = closeDetail(code, reason);
+	if (code === 1006) {
+		return `AISStream closed with no messages${detail}. This is what AISStream does for an invalid/revoked API key, or if the JSON subscription never arrived.`;
+	}
+	return `AISStream closed with no messages${detail}`;
 }
 
 function closeDetail(code: number | undefined, reason: unknown): string {
