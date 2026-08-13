@@ -62,6 +62,7 @@ export async function ingestAis(
 		vessels,
 		ingestMs: Date.now() - started,
 		messageCount,
+		error: messageCount === 0 ? "AISStream connected but sent 0 frames" : undefined,
 	};
 }
 
