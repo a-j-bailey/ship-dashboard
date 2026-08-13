@@ -17,9 +17,10 @@ export function bboxFromCenter(lat: number, lng: number, radiusNm: number): [[nu
 	const dLat = radiusNm / NM_PER_DEGREE_LAT;
 	const cosLat = Math.cos((lat * Math.PI) / 180);
 	const dLng = radiusNm / (NM_PER_DEGREE_LAT * Math.max(0.2, Math.abs(cosLat)));
+	// AISStream's working subscriptions use SW then NE: [[minLat, minLng], [maxLat, maxLng]].
 	return [
-		[lat + dLat, lng - dLng],
-		[lat - dLat, lng + dLng],
+		[lat - dLat, lng - dLng],
+		[lat + dLat, lng + dLng],
 	];
 }
 

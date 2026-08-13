@@ -18,13 +18,23 @@ describe("normalizeSettings", () => {
 });
 
 describe("bboxFromCenter", () => {
-	it("builds a box around Boston 8NM", () => {
-		const [[n, w], [s, e]] = bboxFromCenter(42.35, -70.98, 8);
-		expect(n).toBeGreaterThan(42.35);
-		expect(s).toBeLessThan(42.35);
-		expect(e).toBeGreaterThan(-70.98);
-		expect(w).toBeLessThan(-70.98);
-		expect(n - s).toBeCloseTo(8 / 30, 5);
+	it("builds a SW then NE [lat,lng] box AISStream accepts", () => {
+		const [[south, west], [north, east]] = bboxFromCenter(42.35, -70.98, 8);
+		expect(south).toBeLessThan(42.35);
+		expect(north).toBeGreaterThan(42.35);
+		expect(west).toBeLessThan(-70.98);
+		expect(east).toBeGreaterThan(-70.98);
+		expect(north - south).toBeCloseTo(8 / 30, 5);
+	});
+
+	it("matches the known-working Narragansett Bay corner order", () => {
+		const [[south, west], [north, east]] = bboxFromCenter(41.6, -71.33, 15);
+		expect(south).toBeLessThan(north);
+		expect(west).toBeLessThan(east);
+		expect(south).toBeCloseTo(41.35, 2);
+		expect(north).toBeCloseTo(41.85, 2);
+		expect(west).toBeCloseTo(-71.66, 1);
+		expect(east).toBeCloseTo(-71.0, 1);
 	});
 });
 
