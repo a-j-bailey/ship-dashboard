@@ -74,6 +74,7 @@ function collectAis(
 ): Promise<number> {
 	return new Promise((resolve, reject) => {
 		const ws = new WebSocket(AIS_URL);
+		ws.binaryType = "arraybuffer";
 		let messageCount = 0;
 		let settled = false;
 
@@ -103,22 +104,37 @@ function collectAis(
 		});
 
 		ws.addEventListener("message", (event) => {
-			const payload = typeof event.data === "string" ? event.data : null;
-			if (!payload) return;
-			try {
-				const parsed = JSON.parse(payload) as AisEnvelope & { error?: string };
-				if (parsed.error) {
-					finish(new Error(parsed.error));
-					return;
+			void (async () => {
+				if (settled) return;
+				const payload = await decodeWsPayload(event.data);
+				if (!payload || settled) return;
+				try {
+					const parsed = JSON.parse(payload) as AisEnvelope & { error?: string };
+					if (parsed.error) {
+						finish(new Error(parsed.error));
+						return;
+					}
+					messageCount += 1;
+					applyAisMessage(parsed, positions, staticCache, Date.now());
+				} catch {
+					// skip malformed frames
 				}
-				messageCount += 1;
-				applyAisMessage(parsed, positions, staticCache, Date.now());
-			} catch {
-				// skip malformed frames
-			}
+			})();
 		});
 
 		ws.addEventListener("error", () => finish(new Error("AISStream websocket error")));
-		ws.addEventListener("close", () => finish());
+		ws.addEventListener("close", () => {
+			if (settled) return;
+			if (messageCount === 0) finish(new Error("AISStream closed with no messages"));
+			else finish();
+		});
 	});
+}
+
+export async function decodeWsPayload(data: unknown): Promise<string | null> {
+	if (typeof data === "string") return data;
+	if (data instanceof ArrayBuffer) return new TextDecoder().decode(data);
+	if (ArrayBuffer.isView(data)) return new TextDecoder().decode(data);
+	if (typeof Blob !== "undefined" && data instanceof Blob) return data.text();
+	return null;
 }
