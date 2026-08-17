@@ -6,6 +6,9 @@ import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from "./png.ts";
 const ARROW_TIP = 8;
 const ARROW_TAIL = 4;
 const ARROW_HALF_W = 5.5;
+const ARROW_HALO_STROKE = 7;
+const LAND_HATCH_ID = "land-hatch";
+const LAND_HATCH_PERIOD = 8;
 
 export function renderRadarSvg(
 	settings: RadarSettings,
@@ -34,10 +37,10 @@ export function renderRadarSvg(
 
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${DISPLAY_WIDTH}" height="${DISPLAY_HEIGHT}" viewBox="0 0 ${DISPLAY_WIDTH} ${DISPLAY_HEIGHT}">
+  ${chartDefs()}
   <rect width="100%" height="100%" fill="#fff"/>
   <rect x="${CHART.x}" y="${CHART.y}" width="${CHART.size}" height="${CHART.size}" fill="#fff" stroke="#000" stroke-width="2"/>
   <g clip-path="url(#chart)">
-    <clipPath id="chart"><rect x="${CHART.x}" y="${CHART.y}" width="${CHART.size}" height="${CHART.size}"/></clipPath>
     ${coast}
     ${arrows}
     <line x1="${cx - 6}" y1="${cy}" x2="${cx + 6}" y2="${cy}" stroke="#fff" stroke-width="2.4"/>
@@ -62,7 +65,7 @@ function vesselArrows(settings: RadarSettings, vessels: Vessel[]): string {
 			const p = projectToChart(vessel.lat, vessel.lng, settings.lat, settings.lng, settings.radiusNm);
 			if (p.x < CHART.x || p.x > CHART.x + CHART.size || p.y < CHART.y || p.y > CHART.y + CHART.size) return "";
 			const points = arrowheadPoints(p.x, p.y, Number.isFinite(vessel.heading) ? vessel.heading : vessel.cog);
-			return `<polygon points="${points}" fill="#fff" stroke="#fff" stroke-width="3.4" stroke-linejoin="round"/><polygon points="${points}" fill="#000" stroke="#000" stroke-width="1" stroke-linejoin="round"/>`;
+			return `<polygon points="${points}" fill="#fff" stroke="#fff" stroke-width="${ARROW_HALO_STROKE}" stroke-linejoin="round"/><polygon points="${points}" fill="#000" stroke="#000" stroke-width="1" stroke-linejoin="round"/>`;
 		})
 		.join("");
 }
@@ -93,8 +96,19 @@ function coastPaths(settings: RadarSettings): string {
 			})
 			.filter(Boolean)
 			.join(" ");
-		return `<polygon points="${points}" fill="#000" stroke="#000" stroke-width="1" stroke-linejoin="round"/>`;
+		return `<polygon points="${points}" fill="url(#${LAND_HATCH_ID})" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/>`;
 	}).join("");
+}
+
+function chartDefs(): string {
+	const half = LAND_HATCH_PERIOD / 2;
+	return `<defs>
+    <pattern id="${LAND_HATCH_ID}" width="${LAND_HATCH_PERIOD}" height="${LAND_HATCH_PERIOD}" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="${LAND_HATCH_PERIOD}" height="${LAND_HATCH_PERIOD}" fill="#fff" shape-rendering="crispEdges"/>
+      <rect width="${half}" height="${LAND_HATCH_PERIOD}" fill="#000" shape-rendering="crispEdges"/>
+    </pattern>
+    <clipPath id="chart"><rect x="${CHART.x}" y="${CHART.y}" width="${CHART.size}" height="${CHART.size}"/></clipPath>
+  </defs>`;
 }
 
 function labelPlate(x: number, y: number, text: string, fontSize: number): string {

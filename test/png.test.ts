@@ -55,9 +55,10 @@ describe("radar SVG", () => {
 		expect(svg).toContain('height="480"');
 		expect(svg).not.toContain("<circle");
 		expect(svg).toContain('clipPath id="chart"');
-		expect(svg).toContain('fill="#000"');
+		expect(svg).toContain('id="land-hatch"');
+		expect(svg).toContain('fill="url(#land-hatch)"');
 		expect(svg).toContain("<polygon");
-		expect(svg).toContain('fill="#fff" stroke="#fff" stroke-width="3.4" stroke-linejoin="round"');
+		expect(svg).toContain('fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="round"');
 	});
 
 	it("draws filled heading arrowheads instead of straight ticks", () => {
@@ -93,6 +94,14 @@ describe("radar SVG", () => {
 		expect(tip.x).toBeGreaterThan(origin.x);
 		expect(tip.y).toBeCloseTo(origin.y, 0);
 		expect((left.x + right.x) / 2).toBeLessThan(origin.x);
+	});
+
+	it("hatches land instead of filling it solid black", () => {
+		const svg = renderRadarSvg({ ...DEFAULT_SETTINGS, radiusNm: 25 }, [], { updatedAt: 1 });
+		expect(svg).toContain('<pattern id="land-hatch"');
+		expect(svg).toContain('patternTransform="rotate(45)"');
+		expect(svg).toContain('fill="url(#land-hatch)"');
+		expect(svg).not.toContain('fill="#000" stroke="#000" stroke-width="1" stroke-linejoin="round"/>');
 	});
 
 	it("spans a 25 NM Narragansett chart instead of a bay-only strip", () => {
