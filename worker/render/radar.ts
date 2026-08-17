@@ -3,7 +3,9 @@ import { COAST_POLYGONS } from "../../data/coastline.ts";
 import { CHART, chartMetrics, projectToChart } from "../geo/project.ts";
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from "./png.ts";
 
-const TICK_LEN = 7;
+const ARROW_TIP = 8;
+const ARROW_TAIL = 4;
+const ARROW_HALF_W = 5.5;
 
 export function renderRadarSvg(
 	settings: RadarSettings,
@@ -15,7 +17,7 @@ export function renderRadarSvg(
 	const utc = `${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}Z`;
 	const { cx, cy } = chartMetrics();
 	const coast = coastPaths(settings);
-	const ticks = vesselTicks(settings, vessels);
+	const arrows = vesselArrows(settings, vessels);
 
 	const rows = contacts
 		.map((vessel, index) => {
@@ -37,7 +39,7 @@ export function renderRadarSvg(
   <g clip-path="url(#chart)">
     <clipPath id="chart"><rect x="${CHART.x}" y="${CHART.y}" width="${CHART.size}" height="${CHART.size}"/></clipPath>
     ${coast}
-    ${ticks}
+    ${arrows}
     <line x1="${cx - 6}" y1="${cy}" x2="${cx + 6}" y2="${cy}" stroke="#fff" stroke-width="2.4"/>
     <line x1="${cx}" y1="${cy - 6}" x2="${cx}" y2="${cy + 6}" stroke="#fff" stroke-width="2.4"/>
     <line x1="${cx - 6}" y1="${cy}" x2="${cx + 6}" y2="${cy}" stroke="#000" stroke-width="1.2"/>
@@ -54,21 +56,31 @@ export function renderRadarSvg(
 </svg>`;
 }
 
-function vesselTicks(settings: RadarSettings, vessels: Vessel[]): string {
+function vesselArrows(settings: RadarSettings, vessels: Vessel[]): string {
 	return vessels
 		.map((vessel) => {
 			const p = projectToChart(vessel.lat, vessel.lng, settings.lat, settings.lng, settings.radiusNm);
 			if (p.x < CHART.x || p.x > CHART.x + CHART.size || p.y < CHART.y || p.y > CHART.y + CHART.size) return "";
-			const heading = ((vessel.heading || vessel.cog) * Math.PI) / 180;
-			const dx = Math.sin(heading) * TICK_LEN;
-			const dy = -Math.cos(heading) * TICK_LEN;
-			const x1 = (p.x - dx).toFixed(1);
-			const y1 = (p.y - dy).toFixed(1);
-			const x2 = (p.x + dx).toFixed(1);
-			const y2 = (p.y + dy).toFixed(1);
-			return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#fff" stroke-width="3.6" stroke-linecap="square"/><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#000" stroke-width="2.2" stroke-linecap="square"/>`;
+			const points = arrowheadPoints(p.x, p.y, Number.isFinite(vessel.heading) ? vessel.heading : vessel.cog);
+			return `<polygon points="${points}" fill="#fff" stroke="#fff" stroke-width="3.4" stroke-linejoin="round"/><polygon points="${points}" fill="#000" stroke="#000" stroke-width="1" stroke-linejoin="round"/>`;
 		})
 		.join("");
+}
+
+function arrowheadPoints(x: number, y: number, headingDeg: number): string {
+	const heading = (headingDeg * Math.PI) / 180;
+	const fx = Math.sin(heading);
+	const fy = -Math.cos(heading);
+	const rx = Math.cos(heading);
+	const ry = Math.sin(heading);
+	const tip = fmtPoint(x + fx * ARROW_TIP, y + fy * ARROW_TIP);
+	const left = fmtPoint(x - fx * ARROW_TAIL - rx * ARROW_HALF_W, y - fy * ARROW_TAIL - ry * ARROW_HALF_W);
+	const right = fmtPoint(x - fx * ARROW_TAIL + rx * ARROW_HALF_W, y - fy * ARROW_TAIL + ry * ARROW_HALF_W);
+	return `${tip} ${left} ${right}`;
+}
+
+function fmtPoint(x: number, y: number): string {
+	return `${x.toFixed(1)},${y.toFixed(1)}`;
 }
 
 function coastPaths(settings: RadarSettings): string {

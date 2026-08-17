@@ -57,7 +57,42 @@ describe("radar SVG", () => {
 		expect(svg).toContain('clipPath id="chart"');
 		expect(svg).toContain('fill="#000"');
 		expect(svg).toContain("<polygon");
-		expect(svg).toContain('stroke="#000" stroke-width="2.2"');
+		expect(svg).toContain('fill="#fff" stroke="#fff" stroke-width="3.4" stroke-linejoin="round"');
+	});
+
+	it("draws filled heading arrowheads instead of straight ticks", () => {
+		const settings = { ...DEFAULT_SETTINGS };
+		const vessel = {
+			mmsi: 1,
+			name: "OCEAN STAR",
+			lat: 41.62,
+			lng: -71.31,
+			sog: 8.2,
+			cog: 90,
+			heading: 90,
+			origin: "Halifax",
+			destination: "Boston",
+			navStatus: 0,
+			updatedAt: 1,
+		};
+		const svg = renderRadarSvg(settings, [vessel], { updatedAt: 1 });
+		const match = svg.match(/<polygon points="([^"]+)" fill="#fff" stroke="#fff"/);
+		expect(match?.[1]).toBeTruthy();
+		const points = (match?.[1] ?? "").split(" ").map((pair) => {
+			const [x, y] = pair.split(",");
+			return { x: Number(x), y: Number(y) };
+		});
+		const tip = points[0];
+		const left = points[1];
+		const right = points[2];
+		expect(tip).toBeDefined();
+		expect(left).toBeDefined();
+		expect(right).toBeDefined();
+		if (!tip || !left || !right) return;
+		const origin = projectToChart(vessel.lat, vessel.lng, settings.lat, settings.lng, settings.radiusNm);
+		expect(tip.x).toBeGreaterThan(origin.x);
+		expect(tip.y).toBeCloseTo(origin.y, 0);
+		expect((left.x + right.x) / 2).toBeLessThan(origin.x);
 	});
 
 	it("spans a 25 NM Narragansett chart instead of a bay-only strip", () => {
