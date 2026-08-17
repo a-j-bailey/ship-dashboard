@@ -9,6 +9,9 @@ const ARROW_HALF_W = 5.5;
 const ARROW_HALO_STROKE = 7;
 const LAND_HATCH_ID = "land-hatch";
 const LAND_HATCH_PERIOD = 8;
+const TRAIL_DASH = "0.9 7";
+const TRAIL_HALO_WIDTH = 3.2;
+const TRAIL_STROKE_WIDTH = 1.3;
 
 export function renderRadarSvg(
 	settings: RadarSettings,
@@ -20,6 +23,7 @@ export function renderRadarSvg(
 	const utc = `${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}Z`;
 	const { cx, cy } = chartMetrics();
 	const coast = coastPaths(settings);
+	const trails = vesselTrails(settings, vessels);
 	const arrows = vesselArrows(settings, vessels);
 
 	const rows = contacts
@@ -42,6 +46,7 @@ export function renderRadarSvg(
   <rect x="${CHART.x}" y="${CHART.y}" width="${CHART.size}" height="${CHART.size}" fill="#fff" stroke="#000" stroke-width="2"/>
   <g clip-path="url(#chart)">
     ${coast}
+    ${trails}
     ${arrows}
     <line x1="${cx - 6}" y1="${cy}" x2="${cx + 6}" y2="${cy}" stroke="#fff" stroke-width="2.4"/>
     <line x1="${cx}" y1="${cy - 6}" x2="${cx}" y2="${cy + 6}" stroke="#fff" stroke-width="2.4"/>
@@ -57,6 +62,19 @@ export function renderRadarSvg(
   ${empty}
   <text x="500" y="468" font-size="11" font-family="IBM Plex Mono, monospace" fill="#000">SOG≥${settings.minSog}kn  ORIGIN FROM AIS DEST</text>
 </svg>`;
+}
+
+function vesselTrails(settings: RadarSettings, vessels: Vessel[]): string {
+	return vessels
+		.map((vessel) => {
+			const points = [...(vessel.trail ?? []), { lat: vessel.lat, lng: vessel.lng }]
+				.map((point) => projectToChart(point.lat, point.lng, settings.lat, settings.lng, settings.radiusNm))
+				.map((point) => fmtPoint(point.x, point.y));
+			if (points.length < 2) return "";
+			const joined = points.join(" ");
+			return `<polyline points="${joined}" fill="none" stroke="#fff" stroke-width="${TRAIL_HALO_WIDTH}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="${TRAIL_DASH}"/><polyline points="${joined}" fill="none" stroke="#000" stroke-width="${TRAIL_STROKE_WIDTH}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="${TRAIL_DASH}"/>`;
+		})
+		.join("");
 }
 
 function vesselArrows(settings: RadarSettings, vessels: Vessel[]): string {

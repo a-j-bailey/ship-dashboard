@@ -59,6 +59,7 @@ describe("radar SVG", () => {
 		expect(svg).toContain('fill="url(#land-hatch)"');
 		expect(svg).toContain("<polygon");
 		expect(svg).toContain('fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="round"');
+		expect(svg).not.toContain("<polyline");
 	});
 
 	it("draws filled heading arrowheads instead of straight ticks", () => {
@@ -94,6 +95,34 @@ describe("radar SVG", () => {
 		expect(tip.x).toBeGreaterThan(origin.x);
 		expect(tip.y).toBeCloseTo(origin.y, 0);
 		expect((left.x + right.x) / 2).toBeLessThan(origin.x);
+	});
+
+	it("draws a dotted wake behind ships that returned on a later sweep", () => {
+		const settings = { ...DEFAULT_SETTINGS };
+		const vessel = {
+			mmsi: 1,
+			name: "OCEAN STAR",
+			lat: 41.62,
+			lng: -71.31,
+			sog: 8.2,
+			cog: 90,
+			heading: 90,
+			origin: "Halifax",
+			destination: "Boston",
+			navStatus: 0,
+			updatedAt: 3,
+			trail: [
+				{ lat: 41.6, lng: -71.33, at: 1 },
+				{ lat: 41.61, lng: -71.32, at: 2 },
+			],
+		};
+		const svg = renderRadarSvg(settings, [vessel], { updatedAt: 3 });
+		expect(svg).toContain("<polyline");
+		expect(svg).toContain('stroke-dasharray="0.9 7"');
+		const current = projectToChart(vessel.lat, vessel.lng, settings.lat, settings.lng, settings.radiusNm);
+		const start = projectToChart(41.6, -71.33, settings.lat, settings.lng, settings.radiusNm);
+		expect(svg).toContain(`${start.x.toFixed(1)},${start.y.toFixed(1)}`);
+		expect(svg).toContain(`${current.x.toFixed(1)},${current.y.toFixed(1)}`);
 	});
 
 	it("hatches land instead of filling it solid black", () => {
