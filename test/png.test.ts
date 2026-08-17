@@ -58,7 +58,7 @@ describe("radar SVG", () => {
 		expect(svg).toContain('id="land-hatch"');
 		expect(svg).toContain('fill="url(#land-hatch)"');
 		expect(svg).toContain("<polygon");
-		expect(svg).toContain('fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="round"');
+		expect(svg).toContain('fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="miter"');
 		expect(svg).not.toContain("<polyline");
 	});
 
@@ -86,15 +86,21 @@ describe("radar SVG", () => {
 		});
 		const tip = points[0];
 		const left = points[1];
-		const right = points[2];
+		const notch = points[2];
+		const right = points[3];
 		expect(tip).toBeDefined();
 		expect(left).toBeDefined();
+		expect(notch).toBeDefined();
 		expect(right).toBeDefined();
-		if (!tip || !left || !right) return;
+		expect(points).toHaveLength(4);
+		if (!tip || !left || !notch || !right) return;
 		const origin = projectToChart(vessel.lat, vessel.lng, settings.lat, settings.lng, settings.radiusNm);
 		expect(tip.x).toBeGreaterThan(origin.x);
 		expect(tip.y).toBeCloseTo(origin.y, 0);
 		expect((left.x + right.x) / 2).toBeLessThan(origin.x);
+		expect(notch.x).toBeGreaterThan(left.x);
+		expect(notch.x).toBeLessThan(tip.x);
+		expect(notch.y).toBeCloseTo(origin.y, 0);
 	});
 
 	it("draws a dotted wake behind ships that returned on a later sweep", () => {

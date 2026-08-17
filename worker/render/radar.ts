@@ -6,6 +6,7 @@ import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from "./png.ts";
 const ARROW_TIP = 8;
 const ARROW_TAIL = 4;
 const ARROW_HALF_W = 5.5;
+const ARROW_NOTCH = 5;
 const ARROW_HALO_STROKE = 7;
 const LAND_HATCH_ID = "land-hatch";
 const LAND_HATCH_PERIOD = 8;
@@ -83,7 +84,7 @@ function vesselArrows(settings: RadarSettings, vessels: Vessel[]): string {
 			const p = projectToChart(vessel.lat, vessel.lng, settings.lat, settings.lng, settings.radiusNm);
 			if (p.x < CHART.x || p.x > CHART.x + CHART.size || p.y < CHART.y || p.y > CHART.y + CHART.size) return "";
 			const points = arrowheadPoints(p.x, p.y, Number.isFinite(vessel.heading) ? vessel.heading : vessel.cog);
-			return `<polygon points="${points}" fill="#fff" stroke="#fff" stroke-width="${ARROW_HALO_STROKE}" stroke-linejoin="round"/><polygon points="${points}" fill="#000" stroke="#000" stroke-width="1" stroke-linejoin="round"/>`;
+			return `<polygon points="${points}" fill="#fff" stroke="#fff" stroke-width="${ARROW_HALO_STROKE}" stroke-linejoin="miter"/><polygon points="${points}" fill="#000" stroke="#000" stroke-width="1" stroke-linejoin="miter"/>`;
 		})
 		.join("");
 }
@@ -96,8 +97,9 @@ function arrowheadPoints(x: number, y: number, headingDeg: number): string {
 	const ry = Math.sin(heading);
 	const tip = fmtPoint(x + fx * ARROW_TIP, y + fy * ARROW_TIP);
 	const left = fmtPoint(x - fx * ARROW_TAIL - rx * ARROW_HALF_W, y - fy * ARROW_TAIL - ry * ARROW_HALF_W);
+	const notch = fmtPoint(x - fx * (ARROW_TAIL - ARROW_NOTCH), y - fy * (ARROW_TAIL - ARROW_NOTCH));
 	const right = fmtPoint(x - fx * ARROW_TAIL + rx * ARROW_HALF_W, y - fy * ARROW_TAIL + ry * ARROW_HALF_W);
-	return `${tip} ${left} ${right}`;
+	return `${tip} ${left} ${notch} ${right}`;
 }
 
 function fmtPoint(x: number, y: number): string {
