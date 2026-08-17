@@ -7,7 +7,7 @@ const AIS_URL = "wss://stream.aisstream.io/v0/stream";
 /** Wall-clock listen per sweep. AIS is a live firehose, not a snapshot; Class B often reports every ~30s. */
 export const AIS_SAMPLE_MS = 45_000;
 /** Keep a moving track on the plot until a later sweep hears it again (or it goes stale). */
-export const AIS_TRACK_TTL_MS = 180_000;
+export const AIS_TRACK_TTL_MS = 600_000;
 const OPEN_MS = 2_000;
 
 export type IngestOptions = {

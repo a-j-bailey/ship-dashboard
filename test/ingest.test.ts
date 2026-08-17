@@ -74,15 +74,15 @@ describe("aisErrorMessage", () => {
 });
 
 describe("seedRecentTracks", () => {
-	it("listens long enough to catch Class B reports and coasts for a few minutes", () => {
+	it("listens long enough to catch Class B reports and coasts for 10 minutes", () => {
 		expect(AIS_SAMPLE_MS).toBe(45_000);
-		expect(AIS_TRACK_TTL_MS).toBe(180_000);
+		expect(AIS_TRACK_TTL_MS).toBe(600_000);
 	});
 
 	it("keeps tracks still inside the TTL and drops stale ones", () => {
 		const now = 1_000_000;
-		const kept = testVessel({ mmsi: 1, updatedAt: now - 60_000 });
-		const stale = testVessel({ mmsi: 2, updatedAt: now - 181_000 });
+		const kept = testVessel({ mmsi: 1, updatedAt: now - 9 * 60_000 });
+		const stale = testVessel({ mmsi: 2, updatedAt: now - 10 * 60_000 - 1_000 });
 		const seeded = seedRecentTracks([kept, stale], now);
 		expect([...seeded.keys()]).toEqual([1]);
 	});
