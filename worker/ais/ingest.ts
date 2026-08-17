@@ -1,12 +1,13 @@
 import type { RadarSettings, StaticRecord, Vessel, VesselSnapshot } from "../../shared/types";
 import { bboxFromCenter, distanceNm } from "../geo/project.ts";
 import { applyAisMessage, movingVessels, type AisEnvelope } from "./filter.ts";
+import { attachTrails } from "./trail.ts";
 
 const AIS_URL = "wss://stream.aisstream.io/v0/stream";
 /** Wall-clock listen per sweep. AIS is a live firehose, not a snapshot; Class B often reports every ~30s. */
 export const AIS_SAMPLE_MS = 45_000;
 /** Keep a moving track on the plot until a later sweep hears it again (or it goes stale). */
-export const AIS_TRACK_TTL_MS = 180_000;
+export const AIS_TRACK_TTL_MS = 600_000;
 const OPEN_MS = 2_000;
 
 export type IngestOptions = {
@@ -51,7 +52,7 @@ export async function ingestAis(
 	const key = apiKey.trim();
 
 	if (!key) {
-		return snapshotFromPositions(settings, bbox, positions, started, 0, "Missing AISSTREAM_API_KEY");
+		return snapshotFromPositions(settings, bbox, positions, started, 0, options.previous, "Missing AISSTREAM_API_KEY");
 	}
 
 	try {
@@ -63,11 +64,12 @@ export async function ingestAis(
 			positions,
 			started,
 			messageCount,
+			options.previous,
 			error instanceof Error ? error.message : "AIS ingest failed",
 		);
 	}
 
-	return snapshotFromPositions(settings, bbox, positions, started, messageCount);
+	return snapshotFromPositions(settings, bbox, positions, started, messageCount, options.previous);
 }
 
 export function seedRecentTracks(
@@ -89,15 +91,19 @@ function snapshotFromPositions(
 	positions: Map<number, Vessel>,
 	started: number,
 	messageCount: number,
+	previous?: Vessel[],
 	error?: string,
 ): VesselSnapshot {
-	const vessels = movingVessels(
-		positions,
-		settings.minSog,
-		settings.lat,
-		settings.lng,
-		settings.radiusNm,
-		distanceNm,
+	const vessels = attachTrails(
+		movingVessels(
+			positions,
+			settings.minSog,
+			settings.lat,
+			settings.lng,
+			settings.radiusNm,
+			distanceNm,
+		),
+		previous,
 	);
 	const quiet = messageCount === 0 && vessels.length === 0;
 	return {

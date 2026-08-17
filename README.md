@@ -58,7 +58,7 @@ Firmware appends `/api/display` onto that base, which is why the token lives in 
 - Live PNG preview of what the OG will paint
 - Moving-vessel table (name, origin, destination, SOG, COG)
 
-Cron listens to AISStream for ~45 seconds every minute and coasts moving tracks for 3 minutes so contacts do not vanish between reports. **Apply + sweep** does the same on demand.
+Cron listens to AISStream for ~45 seconds every minute and coasts moving tracks for 10 minutes so contacts do not vanish between reports. **Apply + sweep** does the same on demand.
 
 ## Tests
 

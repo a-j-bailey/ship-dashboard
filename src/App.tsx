@@ -230,7 +230,7 @@ export function App() {
 							{device?.fwVersion ? ` · FW ${device.fwVersion}` : ""}
 							{device?.batteryVoltage ? ` · ${device.batteryVoltage}V` : ""}
 						</div>
-						<div className="flash">Each sweep listens ~45s. Moving contacts stay on the plot for 3 minutes.</div>
+						<div className="flash">Each sweep listens ~45s. Moving contacts stay on the plot for 10 minutes.</div>
 					</div>
 				</aside>
 			</div>

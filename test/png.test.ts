@@ -55,9 +55,11 @@ describe("radar SVG", () => {
 		expect(svg).toContain('height="480"');
 		expect(svg).not.toContain("<circle");
 		expect(svg).toContain('clipPath id="chart"');
-		expect(svg).toContain('fill="#000"');
+		expect(svg).toContain('id="land-hatch"');
+		expect(svg).toContain('fill="url(#land-hatch)"');
 		expect(svg).toContain("<polygon");
-		expect(svg).toContain('fill="#fff" stroke="#fff" stroke-width="3.4" stroke-linejoin="round"');
+		expect(svg).toContain('fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="miter"');
+		expect(svg).not.toContain("<polyline");
 	});
 
 	it("draws filled heading arrowheads instead of straight ticks", () => {
@@ -84,15 +86,57 @@ describe("radar SVG", () => {
 		});
 		const tip = points[0];
 		const left = points[1];
-		const right = points[2];
+		const notch = points[2];
+		const right = points[3];
 		expect(tip).toBeDefined();
 		expect(left).toBeDefined();
+		expect(notch).toBeDefined();
 		expect(right).toBeDefined();
-		if (!tip || !left || !right) return;
+		expect(points).toHaveLength(4);
+		if (!tip || !left || !notch || !right) return;
 		const origin = projectToChart(vessel.lat, vessel.lng, settings.lat, settings.lng, settings.radiusNm);
 		expect(tip.x).toBeGreaterThan(origin.x);
 		expect(tip.y).toBeCloseTo(origin.y, 0);
 		expect((left.x + right.x) / 2).toBeLessThan(origin.x);
+		expect(notch.x).toBeGreaterThan(left.x);
+		expect(notch.x).toBeLessThan(tip.x);
+		expect(notch.y).toBeCloseTo(origin.y, 0);
+	});
+
+	it("draws a dotted wake behind ships that returned on a later sweep", () => {
+		const settings = { ...DEFAULT_SETTINGS };
+		const vessel = {
+			mmsi: 1,
+			name: "OCEAN STAR",
+			lat: 41.62,
+			lng: -71.31,
+			sog: 8.2,
+			cog: 90,
+			heading: 90,
+			origin: "Halifax",
+			destination: "Boston",
+			navStatus: 0,
+			updatedAt: 3,
+			trail: [
+				{ lat: 41.6, lng: -71.33, at: 1 },
+				{ lat: 41.61, lng: -71.32, at: 2 },
+			],
+		};
+		const svg = renderRadarSvg(settings, [vessel], { updatedAt: 3 });
+		expect(svg).toContain("<polyline");
+		expect(svg).toContain('stroke-dasharray="0.9 7"');
+		const current = projectToChart(vessel.lat, vessel.lng, settings.lat, settings.lng, settings.radiusNm);
+		const start = projectToChart(41.6, -71.33, settings.lat, settings.lng, settings.radiusNm);
+		expect(svg).toContain(`${start.x.toFixed(1)},${start.y.toFixed(1)}`);
+		expect(svg).toContain(`${current.x.toFixed(1)},${current.y.toFixed(1)}`);
+	});
+
+	it("hatches land instead of filling it solid black", () => {
+		const svg = renderRadarSvg({ ...DEFAULT_SETTINGS, radiusNm: 25 }, [], { updatedAt: 1 });
+		expect(svg).toContain('<pattern id="land-hatch"');
+		expect(svg).toContain('patternUnits="userSpaceOnUse"');
+		expect(svg).toContain('fill="url(#land-hatch)"');
+		expect(svg).not.toContain('patternTransform');
 	});
 
 	it("spans a 25 NM Narragansett chart instead of a bay-only strip", () => {

@@ -6,6 +6,13 @@ import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from "./png.ts";
 const ARROW_TIP = 8;
 const ARROW_TAIL = 4;
 const ARROW_HALF_W = 5.5;
+const ARROW_NOTCH = 5;
+const ARROW_HALO_STROKE = 7;
+const LAND_HATCH_ID = "land-hatch";
+const LAND_HATCH_PERIOD = 8;
+const TRAIL_DASH = "0.9 7";
+const TRAIL_HALO_WIDTH = 3.2;
+const TRAIL_STROKE_WIDTH = 1.3;
 
 export function renderRadarSvg(
 	settings: RadarSettings,
@@ -17,6 +24,7 @@ export function renderRadarSvg(
 	const utc = `${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}Z`;
 	const { cx, cy } = chartMetrics();
 	const coast = coastPaths(settings);
+	const trails = vesselTrails(settings, vessels);
 	const arrows = vesselArrows(settings, vessels);
 
 	const rows = contacts
@@ -34,11 +42,12 @@ export function renderRadarSvg(
 
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${DISPLAY_WIDTH}" height="${DISPLAY_HEIGHT}" viewBox="0 0 ${DISPLAY_WIDTH} ${DISPLAY_HEIGHT}">
+  ${chartDefs()}
   <rect width="100%" height="100%" fill="#fff"/>
   <rect x="${CHART.x}" y="${CHART.y}" width="${CHART.size}" height="${CHART.size}" fill="#fff" stroke="#000" stroke-width="2"/>
   <g clip-path="url(#chart)">
-    <clipPath id="chart"><rect x="${CHART.x}" y="${CHART.y}" width="${CHART.size}" height="${CHART.size}"/></clipPath>
     ${coast}
+    ${trails}
     ${arrows}
     <line x1="${cx - 6}" y1="${cy}" x2="${cx + 6}" y2="${cy}" stroke="#fff" stroke-width="2.4"/>
     <line x1="${cx}" y1="${cy - 6}" x2="${cx}" y2="${cy + 6}" stroke="#fff" stroke-width="2.4"/>
@@ -56,13 +65,26 @@ export function renderRadarSvg(
 </svg>`;
 }
 
+function vesselTrails(settings: RadarSettings, vessels: Vessel[]): string {
+	return vessels
+		.map((vessel) => {
+			const points = [...(vessel.trail ?? []), { lat: vessel.lat, lng: vessel.lng }]
+				.map((point) => projectToChart(point.lat, point.lng, settings.lat, settings.lng, settings.radiusNm))
+				.map((point) => fmtPoint(point.x, point.y));
+			if (points.length < 2) return "";
+			const joined = points.join(" ");
+			return `<polyline points="${joined}" fill="none" stroke="#fff" stroke-width="${TRAIL_HALO_WIDTH}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="${TRAIL_DASH}"/><polyline points="${joined}" fill="none" stroke="#000" stroke-width="${TRAIL_STROKE_WIDTH}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="${TRAIL_DASH}"/>`;
+		})
+		.join("");
+}
+
 function vesselArrows(settings: RadarSettings, vessels: Vessel[]): string {
 	return vessels
 		.map((vessel) => {
 			const p = projectToChart(vessel.lat, vessel.lng, settings.lat, settings.lng, settings.radiusNm);
 			if (p.x < CHART.x || p.x > CHART.x + CHART.size || p.y < CHART.y || p.y > CHART.y + CHART.size) return "";
 			const points = arrowheadPoints(p.x, p.y, Number.isFinite(vessel.heading) ? vessel.heading : vessel.cog);
-			return `<polygon points="${points}" fill="#fff" stroke="#fff" stroke-width="3.4" stroke-linejoin="round"/><polygon points="${points}" fill="#000" stroke="#000" stroke-width="1" stroke-linejoin="round"/>`;
+			return `<polygon points="${points}" fill="#fff" stroke="#fff" stroke-width="${ARROW_HALO_STROKE}" stroke-linejoin="miter"/><polygon points="${points}" fill="#000" stroke="#000" stroke-width="1" stroke-linejoin="miter"/>`;
 		})
 		.join("");
 }
@@ -75,8 +97,9 @@ function arrowheadPoints(x: number, y: number, headingDeg: number): string {
 	const ry = Math.sin(heading);
 	const tip = fmtPoint(x + fx * ARROW_TIP, y + fy * ARROW_TIP);
 	const left = fmtPoint(x - fx * ARROW_TAIL - rx * ARROW_HALF_W, y - fy * ARROW_TAIL - ry * ARROW_HALF_W);
+	const notch = fmtPoint(x - fx * (ARROW_TAIL - ARROW_NOTCH), y - fy * (ARROW_TAIL - ARROW_NOTCH));
 	const right = fmtPoint(x - fx * ARROW_TAIL + rx * ARROW_HALF_W, y - fy * ARROW_TAIL + ry * ARROW_HALF_W);
-	return `${tip} ${left} ${right}`;
+	return `${tip} ${left} ${notch} ${right}`;
 }
 
 function fmtPoint(x: number, y: number): string {
@@ -93,8 +116,22 @@ function coastPaths(settings: RadarSettings): string {
 			})
 			.filter(Boolean)
 			.join(" ");
-		return `<polygon points="${points}" fill="#000" stroke="#000" stroke-width="1" stroke-linejoin="round"/>`;
+		return `<polygon points="${points}" fill="url(#${LAND_HATCH_ID})" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/>`;
 	}).join("");
+}
+
+function chartDefs(): string {
+	const half = LAND_HATCH_PERIOD / 2;
+	// Axis-aligned checkerboard reads as a 45° hash on 1-bit without the gray
+	// antialias fringe that rotated stripe patterns pick up in resvg.
+	return `<defs>
+    <pattern id="${LAND_HATCH_ID}" width="${LAND_HATCH_PERIOD}" height="${LAND_HATCH_PERIOD}" patternUnits="userSpaceOnUse">
+      <rect width="${LAND_HATCH_PERIOD}" height="${LAND_HATCH_PERIOD}" fill="#fff"/>
+      <rect width="${half}" height="${half}" fill="#000"/>
+      <rect x="${half}" y="${half}" width="${half}" height="${half}" fill="#000"/>
+    </pattern>
+    <clipPath id="chart"><rect x="${CHART.x}" y="${CHART.y}" width="${CHART.size}" height="${CHART.size}"/></clipPath>
+  </defs>`;
 }
 
 function labelPlate(x: number, y: number, text: string, fontSize: number): string {
