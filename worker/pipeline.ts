@@ -17,8 +17,10 @@ export async function refreshRadar(env: Env): Promise<VesselSnapshot> {
 }
 
 export async function refreshRadarWithSettings(env: Env, settings: RadarSettings): Promise<VesselSnapshot> {
-	const staticCache = await getStaticCache(env.KV);
-	const snapshot = await ingestAis(env.AISSTREAM_API_KEY ?? "", settings, staticCache);
+	const [staticCache, previous] = await Promise.all([getStaticCache(env.KV), getSnapshot(env.KV)]);
+	const snapshot = await ingestAis(env.AISSTREAM_API_KEY ?? "", settings, staticCache, {
+		previous: previous?.vessels,
+	});
 	await putSnapshot(env.KV, snapshot);
 	await putStaticCache(env.KV, staticCache);
 	await renderAndStore(env.KV, settings, snapshot);
