@@ -16,6 +16,12 @@ export type RadarSettings = {
 	areaLabel: string;
 };
 
+export type TrackPoint = {
+	lat: number;
+	lng: number;
+	at: number;
+};
+
 export type Vessel = {
 	mmsi: number;
 	name: string;
@@ -28,6 +34,8 @@ export type Vessel = {
 	destination: string;
 	navStatus: number | null;
 	updatedAt: number;
+	/** Previous sweep positions, oldest first. Empty until a ship is seen again. */
+	trail?: TrackPoint[];
 };
 
 export type VesselSnapshot = {

@@ -239,6 +239,38 @@ describe("ingestAis websocket client", () => {
 		expect(snapshot.vessels.map((vessel) => vessel.mmsi).sort()).toEqual([338111000, 338222000]);
 	});
 
+	it("records a trail point when the same ship moves on the next sweep", async () => {
+		const previous = [testVessel({ mmsi: 338111000, lat: 41.6, lng: -71.33, updatedAt: Date.now() })];
+		const pending = ingestAis("live-key", DEFAULT_SETTINGS, new Map(), { previous });
+		const socket = await vi.waitFor(() => {
+			expect(FakeWebSocket.latest?.sent.length).toBe(1);
+			return FakeWebSocket.latest as FakeWebSocket;
+		});
+		socket.emitMessage(
+			JSON.stringify({
+				MessageType: "PositionReport",
+				MetaData: { MMSI: 338111000, ShipName: "COASTED" },
+				Message: {
+					PositionReport: {
+						UserID: 338111000,
+						Latitude: 41.62,
+						Longitude: -71.33,
+						Sog: 8,
+						Cog: 0,
+						TrueHeading: 0,
+						NavigationalStatus: 0,
+					},
+				},
+			}),
+		);
+		socket.close(1000, "");
+		const snapshot = await pending;
+		expect(snapshot.vessels).toHaveLength(1);
+		expect(snapshot.vessels[0]?.trail).toEqual([
+			{ lat: 41.6, lng: -71.33, at: previous[0]?.updatedAt },
+		]);
+	});
+
 	it("keeps coasted tracks when AISStream drops the socket", async () => {
 		const previous = [testVessel({ mmsi: 338111000, updatedAt: Date.now() })];
 		const pending = ingestAis("live-key", DEFAULT_SETTINGS, new Map(), { previous });
