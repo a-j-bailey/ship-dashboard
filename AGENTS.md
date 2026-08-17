@@ -9,7 +9,7 @@
 ## Learned Workspace Facts
 - Harbor Scope is a custom TRMNL BYOS ship radar: Vite + React SPA (Cloudflare Vite plugin), Hono Worker, KV, minute cron, TypeScript, Vitest.
 - Official TRMNL OG firmware stays on the device; custom/stay-awake firmware is out of scope for v1.
-- AIS comes from AISStream (WebSocket); cron samples ~12s each minute and shows moving vessels only (default min SOG 0.5 kn).
+- AIS comes from AISStream (WebSocket); cron listens ~45s each minute, coasts moving tracks for 3 minutes, and shows moving vessels only (default min SOG 0.5 kn).
 - Default radar center is Narragansett Bay (41.6, -71.33) at 15 NM (zoom presets 1–25 NM); origin is parsed from AIS destination `ORIGIN>DEST` / UN/LOCODE.
 - The e-ink chart uses filled southern New England coast polygons and heading ticks (no range rings); coastline must cover at least the 25 NM zoom.
 - BYOS endpoints are `/api/setup`, `/api/display`, `/api/log`; the device custom-server base is `/t/<DEVICE_TOKEN>` because firmware appends `/api/display`.
