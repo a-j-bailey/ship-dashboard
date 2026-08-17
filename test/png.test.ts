@@ -99,9 +99,9 @@ describe("radar SVG", () => {
 	it("hatches land instead of filling it solid black", () => {
 		const svg = renderRadarSvg({ ...DEFAULT_SETTINGS, radiusNm: 25 }, [], { updatedAt: 1 });
 		expect(svg).toContain('<pattern id="land-hatch"');
-		expect(svg).toContain('patternTransform="rotate(45)"');
+		expect(svg).toContain('patternUnits="userSpaceOnUse"');
 		expect(svg).toContain('fill="url(#land-hatch)"');
-		expect(svg).not.toContain('fill="#000" stroke="#000" stroke-width="1" stroke-linejoin="round"/>');
+		expect(svg).not.toContain('patternTransform');
 	});
 
 	it("spans a 25 NM Narragansett chart instead of a bay-only strip", () => {

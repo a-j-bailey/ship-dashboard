@@ -102,10 +102,13 @@ function coastPaths(settings: RadarSettings): string {
 
 function chartDefs(): string {
 	const half = LAND_HATCH_PERIOD / 2;
+	// Axis-aligned checkerboard reads as a 45° hash on 1-bit without the gray
+	// antialias fringe that rotated stripe patterns pick up in resvg.
 	return `<defs>
-    <pattern id="${LAND_HATCH_ID}" width="${LAND_HATCH_PERIOD}" height="${LAND_HATCH_PERIOD}" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-      <rect width="${LAND_HATCH_PERIOD}" height="${LAND_HATCH_PERIOD}" fill="#fff" shape-rendering="crispEdges"/>
-      <rect width="${half}" height="${LAND_HATCH_PERIOD}" fill="#000" shape-rendering="crispEdges"/>
+    <pattern id="${LAND_HATCH_ID}" width="${LAND_HATCH_PERIOD}" height="${LAND_HATCH_PERIOD}" patternUnits="userSpaceOnUse">
+      <rect width="${LAND_HATCH_PERIOD}" height="${LAND_HATCH_PERIOD}" fill="#fff"/>
+      <rect width="${half}" height="${half}" fill="#000"/>
+      <rect x="${half}" y="${half}" width="${half}" height="${half}" fill="#000"/>
     </pattern>
     <clipPath id="chart"><rect x="${CHART.x}" y="${CHART.y}" width="${CHART.size}" height="${CHART.size}"/></clipPath>
   </defs>`;
