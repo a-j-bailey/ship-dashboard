@@ -182,6 +182,7 @@ describe("radar SVG", () => {
 		expect(svg).toContain('<pattern id="land-bayer" width="8" height="8"');
 		expect(svg).toContain('patternUnits="userSpaceOnUse"');
 		expect(svg).toContain('fill="url(#land-bayer)"');
+		expect(svg).toContain('shape-rendering="crispEdges"');
 		expect(svg).not.toContain("patternTransform");
 		expect(svg).not.toContain('width="4" height="4"');
 		const dots = [...svg.matchAll(/<rect x="(\d+)" y="(\d+)" width="1" height="1" fill="#000"\/>/g)].map((match) => ({

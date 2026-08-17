@@ -145,8 +145,10 @@ function chartDefs(): string {
 	// Axis-aligned 1×1 rects stay binary in resvg; a rotated hatch picks up a gray fringe.
 	return `<defs>
     <pattern id="${LAND_BAYER_ID}" width="${LAND_BAYER_SIZE}" height="${LAND_BAYER_SIZE}" patternUnits="userSpaceOnUse">
-      <rect width="${LAND_BAYER_SIZE}" height="${LAND_BAYER_SIZE}" fill="#fff"/>
-      ${landBayerDots()}
+      <g shape-rendering="crispEdges">
+        <rect width="${LAND_BAYER_SIZE}" height="${LAND_BAYER_SIZE}" fill="#fff"/>
+        ${landBayerDots()}
+      </g>
     </pattern>
     <clipPath id="chart"><rect x="${CHART.x}" y="${CHART.y}" width="${CHART.size}" height="${CHART.size}"/></clipPath>
   </defs>`;
