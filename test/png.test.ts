@@ -101,8 +101,8 @@ describe("radar SVG", () => {
 		expect(svg).toContain('height="480"');
 		expect(svg).not.toContain("<circle");
 		expect(svg).toContain('clipPath id="chart"');
-		expect(svg).toContain('id="land-hatch"');
-		expect(svg).toContain('fill="url(#land-hatch)"');
+		expect(svg).toContain('id="land-bayer"');
+		expect(svg).toContain('fill="url(#land-bayer)"');
 		expect(svg).toContain("<polygon");
 		expect(svg).toContain('fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="miter"');
 		expect(svg).not.toContain("<polyline");
@@ -177,12 +177,22 @@ describe("radar SVG", () => {
 		expect(svg).toContain(`${current.x.toFixed(1)},${current.y.toFixed(1)}`);
 	});
 
-	it("hatches land instead of filling it solid black", () => {
+	it("dithers land with an 8×8 Bayer matrix instead of a checkerboard", () => {
 		const svg = renderRadarSvg({ ...DEFAULT_SETTINGS, radiusNm: 25 }, [], { updatedAt: 1 });
-		expect(svg).toContain('<pattern id="land-hatch"');
+		expect(svg).toContain('<pattern id="land-bayer" width="8" height="8"');
 		expect(svg).toContain('patternUnits="userSpaceOnUse"');
-		expect(svg).toContain('fill="url(#land-hatch)"');
-		expect(svg).not.toContain('patternTransform');
+		expect(svg).toContain('fill="url(#land-bayer)"');
+		expect(svg).not.toContain("patternTransform");
+		expect(svg).not.toContain('width="4" height="4"');
+		const dots = [...svg.matchAll(/<rect x="(\d+)" y="(\d+)" width="1" height="1" fill="#000"\/>/g)].map((match) => ({
+			x: Number(match[1]),
+			y: Number(match[2]),
+		}));
+		expect(dots).toHaveLength(24);
+		const occupied = new Set(dots.map((dot) => `${dot.x},${dot.y}`));
+		expect(occupied.has("0,0")).toBe(true);
+		expect(occupied.has("1,0")).toBe(false);
+		expect(occupied.has("4,4")).toBe(true);
 	});
 
 	it("spans a 25 NM Narragansett chart instead of a bay-only strip", () => {
