@@ -27,6 +27,52 @@ describe("e-ink PNG", () => {
 });
 
 describe("radar SVG", () => {
+	it("keeps the contact list tight to the header and spaced between ships", () => {
+		const vessels = Array.from({ length: 3 }, (_, index) => ({
+			mmsi: index + 1,
+			name: `SHIP ${index + 1}`,
+			lat: 41.62,
+			lng: -71.31,
+			sog: 8.2,
+			cog: 120,
+			heading: 120,
+			origin: "Halifax",
+			destination: "Boston",
+			navStatus: 0,
+			updatedAt: 1,
+		}));
+		const svg = renderRadarSvg({ ...DEFAULT_SETTINGS }, vessels, { updatedAt: 1 });
+		const nameYs = [...svg.matchAll(/<text x="500" y="(\d+)" font-size="13"/g)].map((match) => Number(match[1]));
+		expect(nameYs).toEqual([82, 120, 158]);
+		expect(nameYs[0]).toBeLessThan(90);
+		expect((nameYs[1] ?? 0) - (nameYs[0] ?? 0)).toBeGreaterThanOrEqual(36);
+	});
+
+	it("shows full AIS-length ship names instead of clipping at 16 characters", () => {
+		const svg = renderRadarSvg(
+			{ ...DEFAULT_SETTINGS },
+			[
+				{
+					mmsi: 1,
+					name: "HORIZON DISCOVERY",
+					lat: 41.62,
+					lng: -71.31,
+					sog: 8.2,
+					cog: 120,
+					heading: 120,
+					origin: "Cape Cod Canal East",
+					destination: "Boston",
+					navStatus: 0,
+					updatedAt: 1,
+				},
+			],
+			{ updatedAt: 1 },
+		);
+		expect(svg).toContain("HORIZON DISCOVERY");
+		expect(svg).not.toContain("HORIZON DISCOVER…");
+		expect(svg).toContain("FROM Cape Cod Canal East");
+	});
+
 	it("includes vessel name and origin", () => {
 		const svg = renderRadarSvg(
 			{ ...DEFAULT_SETTINGS },
