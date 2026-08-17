@@ -3,8 +3,17 @@ import { bboxFromCenter, distanceNm } from "../geo/project.ts";
 import { applyAisMessage, movingVessels, type AisEnvelope } from "./filter.ts";
 
 const AIS_URL = "wss://stream.aisstream.io/v0/stream";
-const SAMPLE_MS = 12_000;
+/** Wall-clock listen per sweep. AIS is a live firehose, not a snapshot; Class B often reports every ~30s. */
+export const AIS_SAMPLE_MS = 45_000;
+/** Keep a moving track on the plot until a later sweep hears it again (or it goes stale). */
+export const AIS_TRACK_TTL_MS = 180_000;
 const OPEN_MS = 2_000;
+
+export type IngestOptions = {
+	previous?: Vessel[];
+	sampleMs?: number;
+	trackTtlMs?: number;
+};
 
 const MESSAGE_TYPES = [
 	"PositionReport",
@@ -31,37 +40,57 @@ export async function ingestAis(
 	apiKey: string,
 	settings: RadarSettings,
 	staticCache: Map<number, StaticRecord>,
+	options: IngestOptions = {},
 ): Promise<VesselSnapshot> {
 	const started = Date.now();
 	const bbox = bboxFromCenter(settings.lat, settings.lng, settings.radiusNm);
-	const positions = new Map<number, Vessel>();
+	const sampleMs = options.sampleMs ?? AIS_SAMPLE_MS;
+	const trackTtlMs = options.trackTtlMs ?? AIS_TRACK_TTL_MS;
+	const positions = seedRecentTracks(options.previous, started, trackTtlMs);
 	let messageCount = 0;
 	const key = apiKey.trim();
 
 	if (!key) {
-		return {
-			updatedAt: started,
-			bbox,
-			vessels: [],
-			ingestMs: 0,
-			messageCount: 0,
-			error: "Missing AISSTREAM_API_KEY",
-		};
+		return snapshotFromPositions(settings, bbox, positions, started, 0, "Missing AISSTREAM_API_KEY");
 	}
 
 	try {
-		messageCount = await collectAis(key, bbox, positions, staticCache, SAMPLE_MS);
+		messageCount = await collectAis(key, bbox, positions, staticCache, sampleMs);
 	} catch (error) {
-		return {
-			updatedAt: Date.now(),
+		return snapshotFromPositions(
+			settings,
 			bbox,
-			vessels: [],
-			ingestMs: Date.now() - started,
+			positions,
+			started,
 			messageCount,
-			error: error instanceof Error ? error.message : "AIS ingest failed",
-		};
+			error instanceof Error ? error.message : "AIS ingest failed",
+		);
 	}
 
+	return snapshotFromPositions(settings, bbox, positions, started, messageCount);
+}
+
+export function seedRecentTracks(
+	previous: Vessel[] | undefined,
+	now: number,
+	ttlMs = AIS_TRACK_TTL_MS,
+): Map<number, Vessel> {
+	const positions = new Map<number, Vessel>();
+	if (!previous?.length) return positions;
+	for (const vessel of previous) {
+		if (now - vessel.updatedAt <= ttlMs) positions.set(vessel.mmsi, vessel);
+	}
+	return positions;
+}
+
+function snapshotFromPositions(
+	settings: RadarSettings,
+	bbox: AisBbox,
+	positions: Map<number, Vessel>,
+	started: number,
+	messageCount: number,
+	error?: string,
+): VesselSnapshot {
 	const vessels = movingVessels(
 		positions,
 		settings.minSog,
@@ -70,14 +99,14 @@ export async function ingestAis(
 		settings.radiusNm,
 		distanceNm,
 	);
-
+	const quiet = messageCount === 0 && vessels.length === 0;
 	return {
 		updatedAt: Date.now(),
 		bbox,
 		vessels,
 		ingestMs: Date.now() - started,
 		messageCount,
-		error: messageCount === 0 ? "AISStream connected but sent 0 frames" : undefined,
+		error: error ?? (quiet ? "AISStream connected but sent 0 frames" : undefined),
 	};
 }
 

@@ -219,7 +219,7 @@ export function App() {
 						</div>
 						<div className="actions">
 							<button className="primary" type="button" disabled={busy} onClick={() => void apply()}>
-								{busy ? "Sweeping…" : "Apply + sweep"}
+								{busy ? "Listening to AIS…" : "Apply + sweep"}
 							</button>
 							<button type="button" onClick={() => void load()}>
 								Reload
@@ -230,6 +230,7 @@ export function App() {
 							{device?.fwVersion ? ` · FW ${device.fwVersion}` : ""}
 							{device?.batteryVoltage ? ` · ${device.batteryVoltage}V` : ""}
 						</div>
+						<div className="flash">Each sweep listens ~45s. Moving contacts stay on the plot for 3 minutes.</div>
 					</div>
 				</aside>
 			</div>
