@@ -13,13 +13,21 @@ const LAND_HATCH_PERIOD = 8;
 const TRAIL_DASH = "0.9 7";
 const TRAIL_HALO_WIDTH = 3.2;
 const TRAIL_STROKE_WIDTH = 1.3;
+const SIDEBAR_X = 500;
+const SIDEBAR_RULE_Y = 60;
+const SIDEBAR_MAX_CONTACTS = 10;
+const SIDEBAR_NAME_Y = 82;
+const SIDEBAR_META_DY = 16;
+const SIDEBAR_ROW_PITCH = 38;
+const SIDEBAR_NAME_CHARS = 24;
+const SIDEBAR_ORIGIN_CHARS = 22;
 
 export function renderRadarSvg(
 	settings: RadarSettings,
 	vessels: Vessel[],
 	options: { updatedAt: number; error?: string },
 ): string {
-	const contacts = vessels.slice(0, 12);
+	const contacts = vessels.slice(0, SIDEBAR_MAX_CONTACTS);
 	const now = new Date(options.updatedAt);
 	const utc = `${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}Z`;
 	const { cx, cy } = chartMetrics();
@@ -30,14 +38,15 @@ export function renderRadarSvg(
 	const rows = contacts
 		.map((vessel, index) => {
 			const origin = vessel.origin === "—" ? vessel.destination : vessel.origin;
-			return `<text x="500" y="${118 + index * 28}" font-size="13" font-family="IBM Plex Mono, monospace" fill="#000">${esc(clip(vessel.name, 16))}</text>
-        <text x="500" y="${132 + index * 28}" font-size="11" font-family="IBM Plex Mono, monospace" fill="#000">FROM ${esc(clip(origin, 18))}  ${vessel.sog.toFixed(1)}kn ${Math.round(vessel.cog)}°</text>`;
+			const nameY = SIDEBAR_NAME_Y + index * SIDEBAR_ROW_PITCH;
+			return `<text x="${SIDEBAR_X}" y="${nameY}" font-size="13" font-family="IBM Plex Mono, monospace" font-weight="700" fill="#000">${esc(clip(vessel.name, SIDEBAR_NAME_CHARS))}</text>
+        <text x="${SIDEBAR_X}" y="${nameY + SIDEBAR_META_DY}" font-size="11" font-family="IBM Plex Mono, monospace" fill="#000">FROM ${esc(clip(origin, SIDEBAR_ORIGIN_CHARS))}  ${vessel.sog.toFixed(1)}kn ${Math.round(vessel.cog)}°</text>`;
 		})
 		.join("");
 
 	const empty =
 		contacts.length === 0
-			? `<text x="500" y="160" font-size="13" font-family="IBM Plex Mono, monospace" fill="#000">${options.error ? esc(options.error) : "NO MOVING CONTACTS"}</text>`
+			? `<text x="${SIDEBAR_X}" y="${SIDEBAR_NAME_Y}" font-size="13" font-family="IBM Plex Mono, monospace" fill="#000">${options.error ? esc(options.error) : "NO MOVING CONTACTS"}</text>`
 			: "";
 
 	return `<?xml version="1.0" encoding="UTF-8"?>
@@ -56,12 +65,12 @@ export function renderRadarSvg(
   </g>
   ${labelPlate(12, 12, settings.areaLabel.toUpperCase(), 14)}
   ${labelPlate(12, CHART.y + CHART.size - 26, `${settings.radiusNm} NM  ${utc}  N↑`, 12)}
-  <text x="500" y="28" font-size="18" font-family="IBM Plex Mono, monospace" font-weight="700" fill="#000">SHIP RADAR</text>
-  <text x="500" y="48" font-size="12" font-family="IBM Plex Mono, monospace" fill="#000">MOVING ${vessels.length}   RANGE ${settings.radiusNm}NM</text>
-  <line x1="492" y1="60" x2="788" y2="60" stroke="#000" stroke-width="2"/>
+  <text x="${SIDEBAR_X}" y="28" font-size="18" font-family="IBM Plex Mono, monospace" font-weight="700" fill="#000">SHIP RADAR</text>
+  <text x="${SIDEBAR_X}" y="48" font-size="12" font-family="IBM Plex Mono, monospace" fill="#000">MOVING ${vessels.length}   RANGE ${settings.radiusNm}NM</text>
+  <line x1="492" y1="${SIDEBAR_RULE_Y}" x2="788" y2="${SIDEBAR_RULE_Y}" stroke="#000" stroke-width="2"/>
   ${rows}
   ${empty}
-  <text x="500" y="468" font-size="11" font-family="IBM Plex Mono, monospace" fill="#000">SOG≥${settings.minSog}kn  ORIGIN FROM AIS DEST</text>
+  <text x="${SIDEBAR_X}" y="468" font-size="11" font-family="IBM Plex Mono, monospace" fill="#000">SOG≥${settings.minSog}kn  ORIGIN FROM AIS DEST</text>
 </svg>`;
 }
 
