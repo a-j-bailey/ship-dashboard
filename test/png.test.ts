@@ -170,7 +170,8 @@ describe("radar SVG", () => {
 		};
 		const svg = renderRadarSvg(settings, [vessel], { updatedAt: 3 });
 		expect(svg).toContain("<polyline");
-		expect(svg).toContain('stroke-dasharray="0.9 7"');
+		expect(svg).toContain('stroke-dasharray="1.3 4.2"');
+		expect(svg).toContain('stroke-width="1.9"');
 		const current = projectToChart(vessel.lat, vessel.lng, settings.lat, settings.lng, settings.radiusNm);
 		const start = projectToChart(41.6, -71.33, settings.lat, settings.lng, settings.radiusNm);
 		expect(svg).toContain(`${start.x.toFixed(1)},${start.y.toFixed(1)}`);

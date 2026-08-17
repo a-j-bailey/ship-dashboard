@@ -22,9 +22,9 @@ const BAYER8: readonly (readonly number[])[] = [
 	[15, 47, 7, 39, 13, 45, 5, 37],
 	[63, 31, 55, 23, 61, 29, 53, 21],
 ];
-const TRAIL_DASH = "0.9 7";
+const TRAIL_DASH = "1.3 4.2";
 const TRAIL_HALO_WIDTH = 3.2;
-const TRAIL_STROKE_WIDTH = 1.3;
+const TRAIL_STROKE_WIDTH = 1.9;
 const SIDEBAR_X = 500;
 const SIDEBAR_RULE_Y = 60;
 const SIDEBAR_MAX_CONTACTS = 10;
