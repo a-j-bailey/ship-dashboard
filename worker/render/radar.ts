@@ -8,8 +8,20 @@ const ARROW_TAIL = 4;
 const ARROW_HALF_W = 5.5;
 const ARROW_NOTCH = 5;
 const ARROW_HALO_STROKE = 7;
-const LAND_HATCH_ID = "land-hatch";
-const LAND_HATCH_PERIOD = 8;
+const LAND_BAYER_ID = "land-bayer";
+const LAND_BAYER_SIZE = 8;
+/** 8×8 Bayer values 0–63. Threshold 24/64 ≈ 37.5% black so land reads gray without collapsing to a 1px checkerboard (that happens at 32). */
+const LAND_BAYER_THRESHOLD = 24;
+const BAYER8: readonly (readonly number[])[] = [
+	[0, 32, 8, 40, 2, 34, 10, 42],
+	[48, 16, 56, 24, 50, 18, 58, 26],
+	[12, 44, 4, 36, 14, 46, 6, 38],
+	[60, 28, 52, 20, 62, 30, 54, 22],
+	[3, 35, 11, 43, 1, 33, 9, 41],
+	[51, 19, 59, 27, 49, 17, 57, 25],
+	[15, 47, 7, 39, 13, 45, 5, 37],
+	[63, 31, 55, 23, 61, 29, 53, 21],
+];
 const TRAIL_DASH = "1.3 4.2";
 const TRAIL_HALO_WIDTH = 3.2;
 const TRAIL_STROKE_WIDTH = 1.9;
@@ -125,22 +137,27 @@ function coastPaths(settings: RadarSettings): string {
 			})
 			.filter(Boolean)
 			.join(" ");
-		return `<polygon points="${points}" fill="url(#${LAND_HATCH_ID})" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/>`;
+		return `<polygon points="${points}" fill="url(#${LAND_BAYER_ID})" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/>`;
 	}).join("");
 }
 
 function chartDefs(): string {
-	const half = LAND_HATCH_PERIOD / 2;
-	// Axis-aligned checkerboard reads as a 45° hash on 1-bit without the gray
-	// antialias fringe that rotated stripe patterns pick up in resvg.
+	// Axis-aligned 1×1 rects stay binary in resvg; a rotated hatch picks up a gray fringe.
 	return `<defs>
-    <pattern id="${LAND_HATCH_ID}" width="${LAND_HATCH_PERIOD}" height="${LAND_HATCH_PERIOD}" patternUnits="userSpaceOnUse">
-      <rect width="${LAND_HATCH_PERIOD}" height="${LAND_HATCH_PERIOD}" fill="#fff"/>
-      <rect width="${half}" height="${half}" fill="#000"/>
-      <rect x="${half}" y="${half}" width="${half}" height="${half}" fill="#000"/>
+    <pattern id="${LAND_BAYER_ID}" width="${LAND_BAYER_SIZE}" height="${LAND_BAYER_SIZE}" patternUnits="userSpaceOnUse">
+      <g shape-rendering="crispEdges">
+        <rect width="${LAND_BAYER_SIZE}" height="${LAND_BAYER_SIZE}" fill="#fff"/>
+        ${landBayerDots()}
+      </g>
     </pattern>
     <clipPath id="chart"><rect x="${CHART.x}" y="${CHART.y}" width="${CHART.size}" height="${CHART.size}"/></clipPath>
   </defs>`;
+}
+
+function landBayerDots(): string {
+	return BAYER8.flatMap((row, y) =>
+		row.flatMap((value, x) => (value < LAND_BAYER_THRESHOLD ? [`<rect x="${x}" y="${y}" width="1" height="1" fill="#000"/>`] : [])),
+	).join("");
 }
 
 function labelPlate(x: number, y: number, text: string, fontSize: number): string {
