@@ -37,5 +37,8 @@
 		"vite": "^7.0.0",
 		"vitest": "^3.2.4",
 		"wrangler": "^4.88.0"
+	},
+	"overrides": {
+		"tinypool": "2.2.0"
 	}
 }
