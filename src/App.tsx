@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { DEFAULT_SETTINGS, ZOOM_PRESETS, type RadarSettings, type VesselSnapshot } from "../shared/types";
 import { latLngFromChartPx } from "../worker/geo/project.ts";
-import { getDashboardToken, getStatus, refreshNow, saveSettings, screenPreviewUrl, setDashboardToken, type StatusPayload } from "./api";
+import { fetchScreenPreview, getDashboardToken, getStatus, refreshNow, saveSettings, setDashboardToken, type StatusPayload } from "./api";
 
 export function App() {
 	const [status, setStatus] = useState<StatusPayload | null>(null);
@@ -9,7 +9,7 @@ export function App() {
 	const [token, setToken] = useState(getDashboardToken());
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [preview, setPreview] = useState(screenPreviewUrl());
+	const [preview, setPreview] = useState("");
 	const [clock, setClock] = useState(utcNow());
 
 	useEffect(() => {
@@ -20,6 +20,12 @@ export function App() {
 	useEffect(() => {
 		void load();
 	}, []);
+
+	useEffect(() => {
+		return () => {
+			if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+		};
+	}, [preview]);
 
 	const vessels = status?.snapshot?.vessels ?? [];
 	const device = status?.device;
@@ -34,7 +40,7 @@ export function App() {
 			const next = await getStatus();
 			setStatus(next);
 			setForm(next.settings);
-			setPreview(screenPreviewUrl());
+			await replacePreview();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "load failed");
 		}
@@ -52,7 +58,7 @@ export function App() {
 				screen: current?.screen ?? null,
 				device: current?.device ?? null,
 			}));
-			setPreview(screenPreviewUrl());
+			await replacePreview();
 			await load();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "apply failed");
@@ -64,6 +70,14 @@ export function App() {
 	function rememberToken() {
 		setDashboardToken(token);
 		void load();
+	}
+
+	async function replacePreview() {
+		const url = await fetchScreenPreview();
+		setPreview((current) => {
+			if (current.startsWith("blob:")) URL.revokeObjectURL(current);
+			return url;
+		});
 	}
 
 	function setField<K extends keyof RadarSettings>(key: K, value: RadarSettings[K]) {
@@ -122,7 +136,12 @@ export function App() {
 								src={preview}
 								alt="TRMNL radar preview"
 								onClick={recenterFromClick}
-								onError={() => setPreview("")}
+								onError={() => {
+									setPreview((current) => {
+										if (current.startsWith("blob:")) URL.revokeObjectURL(current);
+										return "";
+									});
+								}}
 								title="Click the chart to set a new center"
 							/>
 						) : (

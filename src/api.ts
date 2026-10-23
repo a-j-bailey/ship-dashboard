@@ -9,9 +9,24 @@ export type StatusPayload = {
 	device: DeviceStatus | null;
 };
 
+export function consumeDashboardQuery(search: string): { token: string | null; nextSearch: string } {
+	const raw = search.startsWith("?") ? search.slice(1) : search;
+	const params = new URLSearchParams(raw);
+	const token = params.get("dashboard")?.trim() || null;
+	if (!token) return { token: null, nextSearch: search };
+	params.delete("dashboard");
+	const qs = params.toString();
+	return { token, nextSearch: qs ? `?${qs}` : "" };
+}
+
 export function getDashboardToken(): string {
-	const params = new URLSearchParams(window.location.search);
-	return params.get("dashboard") ?? sessionStorage.getItem(TOKEN_KEY) ?? "";
+	const { token: fromQuery, nextSearch } = consumeDashboardQuery(window.location.search);
+	if (fromQuery) {
+		sessionStorage.setItem(TOKEN_KEY, fromQuery);
+		window.history.replaceState(null, "", `${window.location.pathname}${nextSearch}${window.location.hash}`);
+		return fromQuery;
+	}
+	return sessionStorage.getItem(TOKEN_KEY) ?? "";
 }
 
 export function setDashboardToken(token: string): void {
@@ -46,9 +61,13 @@ export function refreshNow(): Promise<VesselSnapshot> {
 	return request("/api/refresh", { method: "POST" });
 }
 
-export function screenPreviewUrl(): string {
-	const params = new URLSearchParams({ ts: String(Date.now()) });
+export async function fetchScreenPreview(): Promise<string> {
 	const token = getDashboardToken();
-	if (token) params.set("dashboard", token);
-	return `/api/screen.png?${params}`;
+	if (!token) return "";
+	const response = await fetch(`/api/screen.png?ts=${Date.now()}`, {
+		headers: { Authorization: `Bearer ${token}` },
+	});
+	if (!response.ok) return "";
+	const blob = await response.blob();
+	return URL.createObjectURL(blob);
 }

@@ -19,7 +19,7 @@ npm test
 npm run dev
 ```
 
-Open the Vite URL, paste `DASHBOARD_TOKEN`, click **Arm**, then **Apply + sweep**.
+Open the Vite URL, paste `DASHBOARD_TOKEN`, click **Arm**, then **Apply + sweep**. Dashboard APIs require `Authorization: Bearer`; the control UI can still read `?dashboard=` from the page URL once, then strips it from the address bar. Do not put the token on `/api/screen.png`.
 
 ## Deploy
 

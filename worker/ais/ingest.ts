@@ -288,10 +288,8 @@ async function openViaFetchUpgrade(): Promise<WebSocket> {
 	});
 	const ws = response.webSocket;
 	if (!ws) {
-		const hint = (await response.text().catch(() => "")).trim().slice(0, 180);
-		throw new Error(
-			`AISStream refused websocket upgrade (${response.status})${hint ? `: ${hint}` : ""}`,
-		);
+		await response.text().catch(() => "");
+		throw new Error(`AISStream refused websocket upgrade (${response.status})`);
 	}
 	try {
 		ws.binaryType = "arraybuffer";
