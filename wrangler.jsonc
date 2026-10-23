@@ -18,6 +18,8 @@
 	"kv_namespaces": [
 		{
 			"binding": "KV",
+			// preview_id currently matches production. Create a separate KV
+			// namespace for `wrangler dev` / preview versions (owner to-do).
 			"id": "042c5e0e1ed04920bb71a55766fba3ce",
 			"preview_id": "042c5e0e1ed04920bb71a55766fba3ce"
 		}

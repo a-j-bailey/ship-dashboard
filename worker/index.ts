@@ -1,7 +1,11 @@
 import { Hono, type Context } from "hono";
+import { AIS_SAMPLE_MS } from "./ais/ingest.ts";
 import { normalizeSettings } from "./geo/project.ts";
 import { displayResponse, setupResponse, absoluteUrl } from "./byos.ts";
-import { requireDashboardToken, requireDeviceToken } from "./auth.ts";
+import { isForbiddenCrossOrigin, requireDashboardToken, requireDeviceToken } from "./auth.ts";
+import { sanitizeDeviceField, sanitizeMac, upsertRegistry } from "./device.ts";
+import { allowExpensiveRefresh } from "./refresh-guard.ts";
+import { applySecurityHeaders } from "./security.ts";
 import { ensureScreen, refreshRadar } from "./pipeline.ts";
 import {
 	getDeviceStatus,
@@ -15,9 +19,21 @@ import {
 	putSettings,
 } from "./store.ts";
 
-type AppContext = Context<{ Bindings: Env }>;
+type AppEnv = { Bindings: Env };
+type AppContext = Context<AppEnv>;
 
-const app = new Hono<{ Bindings: Env }>();
+const MAX_JSON_BYTES = 4_096;
+
+const app = new Hono<AppEnv>();
+
+app.use("*", async (c, next) => {
+	await next();
+	applySecurityHeaders(c.res.headers, c.req.url);
+});
+
+app.onError((_err, c) => c.json({ error: "internal_error" }, 500));
+
+app.notFound((c) => c.json({ error: "not_found" }, 404));
 
 app.get("/api/setup", (c) => handleSetup(c));
 app.get("/t/:token/api/setup", (c) => handleSetup(c, c.req.param("token")));
@@ -35,7 +51,9 @@ app.get("/api/settings", async (c) => {
 
 app.put("/api/settings", async (c) => {
 	if (!(await requireDashboardToken(c.req.raw, c.env))) return c.json({ error: "unauthorized" }, 401);
-	const body = (await c.req.json()) as Record<string, unknown>;
+	if (isForbiddenCrossOrigin(c.req.raw)) return c.json({ error: "forbidden" }, 403);
+	const body = await readJsonObject(c);
+	if (!body) return c.json({ error: "invalid_json" }, 400);
 	const settings = normalizeSettings(body);
 	await putSettings(c.env.KV, settings);
 	return c.json(settings);
@@ -62,6 +80,10 @@ app.get("/api/status", async (c) => {
 
 app.post("/api/refresh", async (c) => {
 	if (!(await requireDashboardToken(c.req.raw, c.env))) return c.json({ error: "unauthorized" }, 401);
+	if (isForbiddenCrossOrigin(c.req.raw)) return c.json({ error: "forbidden" }, 403);
+	if (!(await allowExpensiveRefresh(c.env.KV, AIS_SAMPLE_MS))) {
+		return c.json({ error: "rate_limited" }, 429);
+	}
 	const snapshot = await refreshRadar(c.env);
 	return c.json(snapshot);
 });
@@ -70,19 +92,12 @@ async function handleSetup(c: AppContext, pathToken?: string): Promise<Response>
 	if (!(await requireDeviceToken(c.req.raw, c.env, pathToken))) {
 		return c.json({ status: 404, api_key: null, friendly_id: null, image_url: null, filename: null }, 404);
 	}
-	const mac = (c.req.header("ID") ?? "").toUpperCase();
+	const mac = sanitizeMac(c.req.header("ID") ?? "");
 	if (!mac) return c.json({ status: 404, api_key: null, friendly_id: null, image_url: null, filename: null }, 404);
 
 	const registry = await getRegistry(c.env.KV);
-	const existing = registry[mac];
-	const record = existing ?? {
-		apiKey: crypto.randomUUID().replaceAll("-", "").slice(0, 22),
-		friendlyId: mac.replaceAll(":", "").slice(-6) || "RADAR1",
-	};
-	if (!existing) {
-		registry[mac] = record;
-		await putRegistry(c.env.KV, registry);
-	}
+	const record = upsertRegistry(registry, mac);
+	if (record.stored) await putRegistry(c.env.KV, registry);
 	await ensureScreen(c.env);
 	const meta = await getScreenMeta(c.env.KV);
 	const filename = meta?.filename ?? "empty_state";
@@ -93,12 +108,12 @@ async function handleDisplay(c: AppContext, pathToken?: string): Promise<Respons
 	if (!(await requireDeviceToken(c.req.raw, c.env, pathToken))) {
 		return c.json({ status: 500, error: "Device not found" }, 401);
 	}
-	const mac = (c.req.header("ID") ?? "").toUpperCase();
+	const mac = sanitizeMac(c.req.header("ID") ?? "");
 	await putDeviceStatus(c.env.KV, {
 		mac,
-		batteryVoltage: c.req.header("Battery-Voltage") ?? null,
-		rssi: c.req.header("RSSI") ?? null,
-		fwVersion: c.req.header("FW-Version") ?? null,
+		batteryVoltage: sanitizeDeviceField(c.req.header("Battery-Voltage")),
+		rssi: sanitizeDeviceField(c.req.header("RSSI")),
+		fwVersion: sanitizeDeviceField(c.req.header("FW-Version")),
 		lastSeenAt: Date.now(),
 	});
 	await ensureScreen(c.env);
@@ -128,11 +143,32 @@ async function handleScreen(c: AppContext, pathToken?: string): Promise<Response
 }
 
 function screenUrl(request: Request, pathToken?: string): string {
-	if (pathToken) return absoluteUrl(request, `/t/${pathToken}/api/screen.png`);
+	if (pathToken) return absoluteUrl(request, `/t/${encodeURIComponent(pathToken)}/api/screen.png`);
 	const url = new URL(request.url);
 	const token = url.searchParams.get("token");
 	return absoluteUrl(request, token ? `/api/screen.png?token=${encodeURIComponent(token)}` : "/api/screen.png");
 }
+
+async function readJsonObject(c: AppContext): Promise<Record<string, unknown> | null> {
+	const declared = Number(c.req.header("content-length") ?? "0");
+	if (Number.isFinite(declared) && declared > MAX_JSON_BYTES) return null;
+	let text: string;
+	try {
+		text = await c.req.text();
+	} catch {
+		return null;
+	}
+	if (text.length > MAX_JSON_BYTES) return null;
+	try {
+		const parsed: unknown = JSON.parse(text);
+		if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+		return parsed as Record<string, unknown>;
+	} catch {
+		return null;
+	}
+}
+
+export { app };
 
 export default {
 	fetch: app.fetch,
